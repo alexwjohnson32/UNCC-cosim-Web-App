@@ -1,0 +1,18 @@
+.user-profile-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-profile-name {
+    font-size: 16px;
+}
+
+.user-profile-icon {
+    object-fit: cover;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--corvid-blue-50);
+    padding: 8px;
+}
