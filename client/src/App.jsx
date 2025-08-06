@@ -2,17 +2,31 @@ import { useState } from 'react';
 import './App.css';
 import Navbar from './components/Navbar';
 import Page from './components/pages/Page';
+import ComponentsPage from './components/pages/components/ComponentsPage';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState('Dashboard');
+  const [currentPage, setCurrentPage] = useState('Components');
 
-  const pageList = ['Dashboard', 'Components', 'Simulation', 'Tools'];
+  const pages = {
+    'Dashboard': {
+      page: <Page metadata={'Dashboard'} />
+    },
+    'Components': {
+      page: <ComponentsPage />
+    },
+    'Simulation': {
+      page: <Page metadata={'Simulation'} />
+    },
+    'Tools': {
+      page: <Page metadata={'Tools'} />
+    }
+  }
 
   return (
     <>
-      <Navbar pageList={pageList} currentPage={currentPage} onPageChange={setCurrentPage} />
+      <Navbar pageList={Object.keys(pages)} currentPage={currentPage} onPageChange={setCurrentPage} />
       <div className='page-container'>
-        <Page metadata={currentPage} />
+        {pages[currentPage].page}
       </div>
     </>
   );

@@ -1,4 +1,4 @@
-button {
+.theme-btn {
     cursor: pointer;
     background-color: rgba(255, 255, 255, 0.05);
     border: none;
@@ -7,6 +7,6 @@ button {
     border-radius: 50%;
 }
 
-button:hover {
+.theme-btn:hover {
     background-color: rgba(255, 255, 255, 0.15);
 }

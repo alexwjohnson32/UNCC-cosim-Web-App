@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import * as routes from './routes.js';
+import { spawnSync } from "child_process";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -26,6 +27,18 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // ======================= API Routes ======================= //
+
+// Need a route to retrieve model schemas
+
+// Need a route to build JSON
+// Need a route to run sim
+app.get('/runSim', (req, res) => {
+  const result = spawnSync('npm', ['install'], {
+    cwd: this.destinationPath(),
+    stdio: 'inherit',
+    shell: true
+  });
+})
 
 // ======================= Start Server ======================= //
 app.listen(port, () => {

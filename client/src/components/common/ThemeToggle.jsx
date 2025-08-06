@@ -7,7 +7,7 @@ export default function ThemeToggle(props) {
     const [lightMode, setLightMode] = useState(true);
 
     return (
-        <button onClick={() => setLightMode(!lightMode)}>
+        <button className='theme-btn' onClick={() => setLightMode(!lightMode)}>
             {lightMode ?
                 <img src={lightModeIcon}></img> :
                 <img src={darkModeIcon}></img>

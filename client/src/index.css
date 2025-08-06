@@ -10,15 +10,19 @@
   --corvid-primary-25: rgba(111, 165, 237, .25);
 }
 
+html,
+body,
 #root {
-  display: flex;
-  flex-direction: row;
+  margin: 0;
   height: 100%;
   width: 100%;
 }
 
-body {
-  margin: 0;
-  height: 100vh;
-  width: 100vw;
+#root {
+  display: flex;
+  flex-direction: row;
+}
+
+button {
+  cursor: pointer;
 }
