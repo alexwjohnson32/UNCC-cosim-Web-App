@@ -17,7 +17,7 @@ export default function ComponentsPage() {
             ...nodes,
             [newId]: {
                 name: newId,
-                children: {}
+                children: []
             }
         });
     }
@@ -29,22 +29,33 @@ export default function ComponentsPage() {
     }
 
     function addDistributionNode(parent) {
-        const node = nodes[parent];
         const newId = `distribution_${v4()}`;
-        const updatedNode = {
-            ...node,
-            children: {
-                ...node.children,
-                [newId]: { name: newId, parent }
-            }
+        const parentNode = nodes[parent];
+
+        const updatedParent = {
+            ...parentNode,
+            children: [...parentNode.children, newId]
         };
 
-        setNodes({ ...nodes, [parent]: updatedNode })
+        setNodes({
+            ...nodes,
+            [parent]: updatedParent
+        })
     }
 
-    function removeDistributionNode(parentId, nodeId) {
+    function removeDistributionNode(nodeId) {
         const updatedNodes = { ...nodes };
-        delete updatedNodes[parentId].children[nodeId];
+
+        for (const [key, node] of Object.entries(updatedNodes)) {
+            if (node.children.includes(nodeId)) {
+                updatedNodes[key] = {
+                    ...node,
+                    children: node.children.filter(id => id !== nodeId)
+                };
+                break;
+            }
+        }
+
         setNodes(updatedNodes);
     }
 
@@ -67,13 +78,17 @@ export default function ComponentsPage() {
         )
     }
 
-    function createDistributionNodeCard(node) {
+    function createDistributionNodeCard(distId) {
+        const parentId = Object.entries(nodes).find(([_, node]) =>
+            node.children.includes(distId)
+        )[0];
+
         return (
-            <div className='card' key={node.name}>
+            <div className='card' key={distId}>
                 <span className="card-title">GridLab-D</span>
-                <span className="card-data"><strong>ID:</strong> {node.name}</span>
-                <span className="card-data"><strong>Parent:</strong> {node.parent}</span>
-                <div className="icon-container delete" onClick={() => removeDistributionNode(node.parent, node.name)}>
+                <span className="card-data"><strong>ID:</strong> {distId}</span>
+                <span className="card-data"><strong>Parent:</strong> {parentId}</span>
+                <div className="icon-container delete" onClick={() => removeDistributionNode(distId)}>
                     <Trash2 fill="red" className="icon delete-icon" />
                 </div>
             </div>
@@ -98,8 +113,8 @@ export default function ComponentsPage() {
                     </div>
                     <div className="node-list-items">
                         {Object.values(nodes)
-                            .flatMap(node => Object.values(node.children))
-                            .map(createDistributionNodeCard)}
+                            .flatMap(node => node.children)
+                            .map(id => createDistributionNodeCard(id))}
                     </div>
                 </div>
             </div>

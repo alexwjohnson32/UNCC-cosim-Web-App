@@ -31,6 +31,8 @@ if (process.env.NODE_ENV === 'production') {
 // Need a route to retrieve model schemas
 
 // Need a route to build JSON
+app.post('/generate-configuration', routes.generateConfiguration);
+
 // Need a route to run sim
 app.get('/runSim', (req, res) => {
   const result = spawnSync('npm', ['install'], {
