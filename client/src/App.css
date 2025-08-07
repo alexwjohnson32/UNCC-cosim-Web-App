@@ -6,3 +6,29 @@
   padding: 32px;
   overflow: hidden;
 }
+
+button {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  align-items: center;
+  
+  width: fit-content;
+  min-height: 32px;
+  height: 32px;
+  background-color: transparent;
+  color: var(--corvid-blue);
+  border: 2px solid var(--corvid-blue);
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+button.primary {
+  background-color: var(--corvid-primary);
+  border: 2px solid var(--corvid-primary);
+  color: white;
+}
+
+.align-right {
+  align-self: flex-end;
+}

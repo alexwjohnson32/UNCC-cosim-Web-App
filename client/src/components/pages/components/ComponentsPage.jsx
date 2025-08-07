@@ -3,6 +3,7 @@ import { useState } from "react";
 import { v4 } from "uuid";
 import Page from "../Page";
 import "./Components.css";
+import { Trash2 } from "lucide-react";
 
 export default function ComponentsPage() {
     /* We are going to need a page with the ability to select number of GridPack and GridLab instance */
@@ -22,6 +23,12 @@ export default function ComponentsPage() {
         });
     }
 
+    function removeTransmissionNode(nodeId) {
+        const updatedNodes = { ...nodes };
+        delete updatedNodes[nodeId];
+        setNodes(updatedNodes);
+    }
+
     function addDistributionNode(parent) {
         const node = nodes[parent];
         const newId = `distribution_${v4()}`;
@@ -31,18 +38,27 @@ export default function ComponentsPage() {
         setNodes({ ...nodes, [parent]: node })
     }
 
+    function removeDistributionNode(parentId, nodeId) {
+        const updatedNodes = { ...nodes };
+        delete updatedNodes[parentId].children[nodeId];
+        setNodes(updatedNodes);
+    }
+
     function createTransmissionNodeCard(node) {
         return (
             <div className='card' key={node.name}>
                 <span className="card-title">GridPack</span>
-                <span className="card-data">ID: {node.name}</span>
+                <span className="card-data"><strong>ID:</strong> {node.name}</span>
+                <span className="card-data"><strong>Child Nodes:</strong> {Object.keys(node.children).length}</span>
                 <button className="rotating-button" onClick={() => addDistributionNode(node.name)}>
                     <div className="icon-container">
                         <Waypoints className="icon icon-waypoints" />
                         <Plus className="icon icon-plus" />
                     </div>
                 </button>
-                <span className="card-data">Child Nodes: {Object.keys(node.children).length}</span>
+                <div className="icon-container delete" onClick={() => removeTransmissionNode(node.name)}>
+                    <Trash2 fill="red" className="icon delete-icon" />
+                </div>
             </div>
         )
     }
@@ -51,8 +67,11 @@ export default function ComponentsPage() {
         return (
             <div className='card' key={node.name}>
                 <span className="card-title">GridLab-D</span>
-                <span className="card-data">Parent: {node.parent}</span>
-                <span className="card-data">ID: {node.name}</span>
+                <span className="card-data"><strong>ID:</strong> {node.name}</span>
+                <span className="card-data"><strong>Parent:</strong> {node.parent}</span>
+                <div className="icon-container delete" onClick={() => removeDistributionNode(node.parent, node.name)}>
+                    <Trash2 fill="red" className="icon delete-icon" />
+                </div>
             </div>
         )
     }
@@ -63,7 +82,7 @@ export default function ComponentsPage() {
                 <div className="node-list">
                     <div className="node-list-header">
                         <span>Transmission Nodes</span>
-                        <button className="node-list-btn" onClick={() => createTransmissionNode()}>Add Node<Plus /></button>
+                        <button onClick={() => createTransmissionNode()}>Add Node<Plus /></button>
                     </div>
                     <div className="node-list-items">
                         {Object.values(nodes).map(node => createTransmissionNodeCard(node))}
@@ -80,6 +99,12 @@ export default function ComponentsPage() {
                     </div>
                 </div>
             </div>
+            {Object.keys(nodes).length > 0 &&
+                <button className="primary align-right">
+                    Build Configuration
+                </button>
+            }
+
         </Page>
     )
 }
