@@ -31,10 +31,15 @@ export default function ComponentsPage() {
     function addDistributionNode(parent) {
         const node = nodes[parent];
         const newId = `distribution_${v4()}`;
-        console.log(nodes);
-        node.children[newId] = { name: newId, parent: parent }
+        const updatedNode = {
+            ...node,
+            children: {
+                ...node.children,
+                [newId]: { name: newId, parent }
+            }
+        };
 
-        setNodes({ ...nodes, [parent]: node })
+        setNodes({ ...nodes, [parent]: updatedNode })
     }
 
     function removeDistributionNode(parentId, nodeId) {
