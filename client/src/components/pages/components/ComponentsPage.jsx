@@ -95,6 +95,30 @@ export default function ComponentsPage() {
         )
     }
 
+    async function sendConfiguration() {
+        try {
+            const response = await fetch('/api/generate-configuration', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    baseDir: './output', // or whatever path you're using server-side
+                    nodes
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                console.log('Success:', data.message);
+            } else {
+                console.error('Error:', data.error);
+            }
+        } catch (err) {
+            console.error('Request failed:', err);
+        }
+    }
+
     return (
         <Page metadata={'Components'}>
             <div className="components-container">
@@ -119,7 +143,7 @@ export default function ComponentsPage() {
                 </div>
             </div>
             {Object.keys(nodes).length > 0 &&
-                <button className="primary align-right">
+                <button className="primary align-right" onClick={() => sendConfiguration()}>
                     Build Configuration
                 </button>
             }

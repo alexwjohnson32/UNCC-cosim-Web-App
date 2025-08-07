@@ -1,8 +1,9 @@
+import { spawnSync } from "child_process";
+import cors from 'cors';
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import * as routes from './routes.js';
-import { spawnSync } from "child_process";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -31,7 +32,7 @@ if (process.env.NODE_ENV === 'production') {
 // Need a route to retrieve model schemas
 
 // Need a route to build JSON
-app.post('/generate-configuration', routes.generateConfiguration);
+app.post('/api/generate-configuration', routes.generateConfiguration);
 
 // Need a route to run sim
 app.get('/runSim', (req, res) => {
