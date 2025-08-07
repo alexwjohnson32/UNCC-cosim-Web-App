@@ -1,9 +1,8 @@
-import { Plus, Waypoints } from "lucide-react";
+import { Plug2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { v4 } from "uuid";
 import Page from "../Page";
 import "./Components.css";
-import { Trash2 } from "lucide-react";
 
 export default function ComponentsPage() {
     /* We are going to need a page with the ability to select number of GridPack and GridLab instance */
@@ -52,7 +51,7 @@ export default function ComponentsPage() {
                 <span className="card-data"><strong>Child Nodes:</strong> {Object.keys(node.children).length}</span>
                 <button className="rotating-button" onClick={() => addDistributionNode(node.name)}>
                     <div className="icon-container">
-                        <Waypoints className="icon icon-waypoints" />
+                        <Plug2 className="icon icon-plug" />
                         <Plus className="icon icon-plus" />
                     </div>
                 </button>

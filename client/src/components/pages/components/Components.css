@@ -116,7 +116,7 @@
     transform: rotate(90deg);
 }
 
-.rotating-button:hover .icon-waypoints {
+.rotating-button:hover .icon-plug {
     opacity: 0;
     transform: rotate(90deg);
 }
