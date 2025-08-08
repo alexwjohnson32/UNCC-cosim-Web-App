@@ -9,6 +9,18 @@
     min-height: 0;
 }
 
+.simulation-name {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.simulation-name input {
+    width: 500px;
+}
+
 .node-list {
     display: flex;
     flex-direction: column;

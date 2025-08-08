@@ -6,21 +6,22 @@ const BASELINE_FILENAME = 'baseline_IEEE_8500.glm';
 const BASELINE_PATH = path.join(TEMPLATE_DIR, BASELINE_FILENAME);
 
 export const generateConfiguration = (req, res) => {
-    const { baseDir, nodes } = req.body;
+    const { baseDir, simName, nodes } = req.body;
 
-    if (!baseDir || !nodes) {
-        return res.status(400).json({ error: 'baseDir and nodes are required' });
+    if (!baseDir || !simName || !nodes) {
+        return res.status(400).json({ error: 'baseDir, simName, and nodes are required' });
     }
 
     try {
         // Create timestamped config folder
         const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '');
-        const configFolderName = `config_${timestamp}`;
+        const configFolderName = `${simName}_${timestamp}`;
         const configDir = path.join(path.resolve(baseDir), configFolderName);
 
         fs.mkdirSync(configDir, { recursive: true });
 
-        createDistributionInputs(nodes, configDir);
+        createCosimRunner(configDir, simName, nodes);
+        createDistributionInputs(configDir, nodes);
 
         res.json({ success: true, message: `Created configuration at ${configDir}` });
     } catch (err) {
@@ -29,7 +30,15 @@ export const generateConfiguration = (req, res) => {
     }
 };
 
-function createDistributionInputs(nodes, baseDir) {
+/**
+ * This function creates the directory structure for the distribution nodes. It will create
+ * the baseDir/distribution/<Model>/nodeID directory structure if it doesn't exist, and then
+ * create the .glm file and .json file for each node. It will also copy a baseline .glm to
+ * the top level model folder.
+ * @param {*} baseDir 
+ * @param {*} nodes 
+ */
+function createDistributionInputs(baseDir, nodes) {
     const ieeeDir = path.join(baseDir, 'distribution', 'IEEE_8500');
     fs.mkdirSync(ieeeDir, { recursive: true });
 
@@ -65,6 +74,15 @@ object helics_msg {
     }
 }
 
+/**
+ * This function takes the node ID and will generate the JSON object from the .json file
+ * with the relevant names changed to match the node ID.
+ * 
+ * TODO: In the future there may be other fields that the user can change, but for now we
+ * just want to auto generate names.
+ * @param {*} dNode - a string ID for the distribution node
+ * @returns JSON object with modified fields
+ */
 function getJSONObject(dNode) {
     return {
         coreInit: "--federates=1",
@@ -122,4 +140,43 @@ function getJSONObject(dNode) {
             }
         ]
     };
+}
+
+function createCosimRunner(configDir, name, nodes) {
+    const federates = [];
+
+    // Add the static gpk_fed (transmission federate)
+    federates.push({
+        directory: "gpk_fed/IEEE-118/resources", // Relative path example
+        exec: "powerflow_ex.x",
+        host: "localhost",
+        name: "gpk_fed"
+    });
+
+    // Add a federate for each distribution node
+    for (const tNode of Object.values(nodes)) {
+        for (const dNode of tNode.children) {
+            federates.push({
+                directory: `distribution/IEEE_8500/${dNode}`,
+                exec: `gridlabd.sh ${dNode}.glm`,
+                host: "localhost",
+                name: `${dNode}_fed`
+            });
+        }
+    }
+
+    const template = {
+        name,
+        logging_path: "",
+        broker: {
+            coreType: "zmq",
+            initString: `--federates=2 --localport=23500`
+        },
+        federates
+    };
+
+    // Write it to the configDir
+    const outputPath = path.join(configDir, 'runnable_cosim.json');
+    fs.writeFileSync(outputPath, JSON.stringify(template, null, 2), 'utf8');
+    console.log(`✔ Created runnable_cosim.json at ${outputPath}`);
 }

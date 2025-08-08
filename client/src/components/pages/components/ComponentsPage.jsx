@@ -1,14 +1,10 @@
 import { Plug2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { v7 } from "uuid";
 import Page from "../Page";
 import "./Components.css";
 
 export default function ComponentsPage() {
-    /* We are going to need a page with the ability to select number of GridPack and GridLab instance */
-    /* We should start with one GridPack but it should eventually be able to connect multiple */
-    /* We need a button to be able to generate the JSON files */
-    /* We will need a button to kick off the sim */
+    const [simName, setSimName] = useState("");
     const [nodes, setNodes] = useState({});
     const [nextTId, setNextTId] = useState(1);
     const [nextDId, setNextDId] = useState({});
@@ -25,18 +21,6 @@ export default function ComponentsPage() {
         setNextTId(prev => prev + 1);
         setNextDId(prev => ({ ...prev, [newTId]: 1 })); // Start D1 counter for this T
     }
-
-
-    // function createTransmissionNode() {
-    //     const newId = v7();
-    //     setNodes({
-    //         ...nodes,
-    //         [newId]: {
-    //             name: newId,
-    //             children: []
-    //         }
-    //     });
-    // }
 
     function addDistributionNode(parent) {
         const distNumber = nextDId[parent];
@@ -57,21 +41,6 @@ export default function ComponentsPage() {
             [parent]: distNumber + 1
         }));
     }
-
-    // function addDistributionNode(parent) {
-    //     const newId = v7();
-    //     const parentNode = nodes[parent];
-
-    //     const updatedParent = {
-    //         ...parentNode,
-    //         children: [...parentNode.children, newId]
-    //     };
-
-    //     setNodes({
-    //         ...nodes,
-    //         [parent]: updatedParent
-    //     })
-    // }
 
     function removeTransmissionNode(nodeId) {
         const updatedNodes = { ...nodes };
@@ -140,6 +109,7 @@ export default function ComponentsPage() {
                 },
                 body: JSON.stringify({
                     baseDir: './output', // or whatever path you're using server-side
+                    simName: simName,
                     nodes
                 })
             });
@@ -157,6 +127,15 @@ export default function ComponentsPage() {
 
     return (
         <Page metadata={'Components'}>
+            <div className="simulation-name">
+                <span>Simulation Name:</span>
+                <input
+                    type="text"
+                    value={simName}
+                    onChange={(e) => setSimName(e.target.value)}
+                    placeholder="Enter a simulation name"
+                />
+            </div>
             <div className="components-container">
                 <div className="node-list">
                     <div className="node-list-header">
