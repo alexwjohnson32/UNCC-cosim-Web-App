@@ -10,37 +10,73 @@ export default function ComponentsPage() {
     /* We need a button to be able to generate the JSON files */
     /* We will need a button to kick off the sim */
     const [nodes, setNodes] = useState({});
+    const [nextTId, setNextTId] = useState(1);
+    const [nextDId, setNextDId] = useState({});
 
     function createTransmissionNode() {
-        const newId = v7();
-        setNodes({
-            ...nodes,
-            [newId]: {
-                name: newId,
+        const newTId = `T${nextTId}`;
+        setNodes(prev => ({
+            ...prev,
+            [newTId]: {
+                name: newTId,
                 children: []
             }
-        });
+        }));
+        setNextTId(prev => prev + 1);
+        setNextDId(prev => ({ ...prev, [newTId]: 1 })); // Start D1 counter for this T
     }
 
-    function removeTransmissionNode(nodeId) {
-        const updatedNodes = { ...nodes };
-        delete updatedNodes[nodeId];
-        setNodes(updatedNodes);
-    }
+
+    // function createTransmissionNode() {
+    //     const newId = v7();
+    //     setNodes({
+    //         ...nodes,
+    //         [newId]: {
+    //             name: newId,
+    //             children: []
+    //         }
+    //     });
+    // }
 
     function addDistributionNode(parent) {
-        const newId = v7();
-        const parentNode = nodes[parent];
+        const distNumber = nextDId[parent];
+        const newDId = `${parent}-D${distNumber}`; // e.g. T1-D1, T1-D2
 
         const updatedParent = {
-            ...parentNode,
-            children: [...parentNode.children, newId]
+            ...nodes[parent],
+            children: [...nodes[parent].children, newDId]
         };
 
         setNodes({
             ...nodes,
             [parent]: updatedParent
-        })
+        });
+
+        setNextDId(prev => ({
+            ...prev,
+            [parent]: distNumber + 1
+        }));
+    }
+
+    // function addDistributionNode(parent) {
+    //     const newId = v7();
+    //     const parentNode = nodes[parent];
+
+    //     const updatedParent = {
+    //         ...parentNode,
+    //         children: [...parentNode.children, newId]
+    //     };
+
+    //     setNodes({
+    //         ...nodes,
+    //         [parent]: updatedParent
+    //     })
+    // }
+
+    function removeTransmissionNode(nodeId) {
+        const updatedNodes = { ...nodes };
+        delete updatedNodes[nodeId];
+        setNodes(updatedNodes);
     }
 
     function removeDistributionNode(nodeId) {
@@ -62,7 +98,7 @@ export default function ComponentsPage() {
     function createTransmissionNodeCard(node) {
         return (
             <div className='card' key={node.name}>
-                <span className="card-title">GridPack</span>
+                <span className="card-title">GridPack - {node.name}</span>
                 <span className="card-data"><strong>ID:</strong> {node.name}</span>
                 <span className="card-data"><strong>Child Nodes:</strong> {Object.keys(node.children).length}</span>
                 <button className="rotating-button" onClick={() => addDistributionNode(node.name)}>
@@ -85,7 +121,7 @@ export default function ComponentsPage() {
 
         return (
             <div className='card' key={distId}>
-                <span className="card-title">GridLab-D</span>
+                <span className="card-title">GridLab-D - {distId}</span>
                 <span className="card-data"><strong>ID:</strong> {distId}</span>
                 <span className="card-data"><strong>Parent:</strong> {parentId}</span>
                 <div className="icon-container delete" onClick={() => removeDistributionNode(distId)}>
