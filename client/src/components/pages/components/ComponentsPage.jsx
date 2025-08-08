@@ -1,6 +1,6 @@
 import { Plug2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { v4 } from "uuid";
+import { v7 } from "uuid";
 import Page from "../Page";
 import "./Components.css";
 
@@ -12,7 +12,7 @@ export default function ComponentsPage() {
     const [nodes, setNodes] = useState({});
 
     function createTransmissionNode() {
-        const newId = `transmission_${v4()}`;
+        const newId = v7();
         setNodes({
             ...nodes,
             [newId]: {
@@ -29,7 +29,7 @@ export default function ComponentsPage() {
     }
 
     function addDistributionNode(parent) {
-        const newId = `distribution_${v4()}`;
+        const newId = v7();
         const parentNode = nodes[parent];
 
         const updatedParent = {
