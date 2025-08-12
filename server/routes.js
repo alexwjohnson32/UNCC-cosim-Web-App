@@ -3,7 +3,9 @@ import path from 'path';
 
 const TEMPLATE_DIR = path.resolve('server/templates');
 const BASELINE_FILENAME = 'baseline_IEEE_8500.glm';
-const BASELINE_PATH = path.join(TEMPLATE_DIR, BASELINE_FILENAME);
+const DISTRIBUTION_MODEL = 'IEEE_8500';
+const TRANSMISSION_MODEL = 'IEEE_118';
+const BASELINE_PATH = path.join(TEMPLATE_DIR, DISTRIBUTION_MODEL, BASELINE_FILENAME);
 
 export const generateConfiguration = (req, res) => {
     const { baseDir, simName, nodes } = req.body;
@@ -21,6 +23,7 @@ export const generateConfiguration = (req, res) => {
         fs.mkdirSync(configDir, { recursive: true });
 
         createCosimRunner(configDir, simName, nodes);
+        createTransmissionInputs(configDir, nodes);
         createDistributionInputs(configDir, nodes);
 
         res.json({ success: true, message: `Created configuration at ${configDir}` });
@@ -29,6 +32,26 @@ export const generateConfiguration = (req, res) => {
         res.status(500).json({ error: 'Failed to create configuration.' });
     }
 };
+
+function createTransmissionInputs(configDir, nodes) {
+    const transmissionDir = path.join(configDir, 'transmission', TRANSMISSION_MODEL);
+    fs.mkdirSync(transmissionDir, { recursive: true });
+
+    const templateDir = path.join(TEMPLATE_DIR, TRANSMISSION_MODEL);
+    const templateFiles = fs.readdirSync(templateDir);
+
+    for (const [tNodeId, tNode] of Object.entries(nodes)) {
+        const tNodeDir = path.join(transmissionDir, tNodeId);
+        fs.mkdirSync(tNodeDir, { recursive: true });
+
+        for (const file of templateFiles) {
+            const src = path.join(templateDir, file);
+            const dest = path.join(tNodeDir, file);
+            fs.copyFileSync(src, dest);
+        }
+        console.log(`✔ Created ${tNodeDir}`);
+    }
+}
 
 /**
  * This function creates the directory structure for the distribution nodes. It will create
@@ -39,14 +62,13 @@ export const generateConfiguration = (req, res) => {
  * @param {*} nodes 
  */
 function createDistributionInputs(baseDir, nodes) {
-    const ieeeDir = path.join(baseDir, 'distribution', 'IEEE_8500');
+    const ieeeDir = path.join(baseDir, 'distribution', DISTRIBUTION_MODEL);
     fs.mkdirSync(ieeeDir, { recursive: true });
 
     // Copy the baseline once to the IEEE_8500 dir
     const baselineTargetPath = path.join(ieeeDir, BASELINE_FILENAME);
     if (!fs.existsSync(baselineTargetPath)) {
         fs.copyFileSync(BASELINE_PATH, baselineTargetPath);
-        console.log(`✔ Copied baseline to ${baselineTargetPath}`);
     }
 
     // Generate files for each distribution node
@@ -145,16 +167,15 @@ function getJSONObject(dNode) {
 function createCosimRunner(configDir, name, nodes) {
     const federates = [];
 
-    // Add the static gpk_fed (transmission federate)
-    federates.push({
-        directory: "gpk_fed/IEEE-118/resources", // Relative path example
-        exec: "powerflow_ex.x",
-        host: "localhost",
-        name: "gpk_fed"
-    });
-
     // Add a federate for each distribution node
     for (const tNode of Object.values(nodes)) {
+        federates.push({
+            directory: `transmission/IEEE-118/${tNode.name}`,
+            exec: "powerflow_ex.x",
+            host: "localhost",
+            name: `${tNode.name}_fed`
+        });
+
         for (const dNode of tNode.children) {
             federates.push({
                 directory: `distribution/IEEE_8500/${dNode}`,
