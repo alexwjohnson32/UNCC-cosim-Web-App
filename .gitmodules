@@ -1,0 +1,4 @@
+[submodule "uncc-corvid"]
+	path = server/uncc-corvid
+	url = git@github.com:alexwjohnson32/uncc-corvid.git
+	branch = connect-to-web-app
