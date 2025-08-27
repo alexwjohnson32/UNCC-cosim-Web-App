@@ -95,13 +95,6 @@ int main(int argc, char **argv)
         }
     }
 
-    // Require deploy/ exists (you said the shell script will create it)
-    if (!std::filesystem::exists(deploy_dir))
-    {
-        std::cout << "Deploy dir `" << deploy_dir.generic_string() << "` does not exist. Create it before running.\n";
-        return 1;
-    }
-
     // Build models (hard-coded deploy path)
     std::vector<std::unique_ptr<orchestrator::IModel>> models;
     models.push_back(std::make_unique<orchestrator::GridPack118BusModel>(deploy_dir.string()));
