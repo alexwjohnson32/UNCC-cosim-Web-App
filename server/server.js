@@ -1,4 +1,4 @@
-import { spawnSync } from "child_process";
+// server.js
 import cors from 'cors';
 import express from "express";
 import path from "path";
@@ -8,7 +8,15 @@ import * as routes from './routes.js';
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
+
+// ======================= API Routes ======================= //
+
+// Build JSON and then run apptainer exec build.sh
+app.post('/api/config', routes.generateConfiguration);   // create config folders/files
+app.post('/api/build', routes.buildInApptainer);        // run build.sh in Apptainer
+app.post('/api/run', routes.runInApptainer);          // run run.sh   in Apptainer
 
 // ======================= Serve Frontend in Production ======================= //
 if (process.env.NODE_ENV === 'production') {
@@ -26,22 +34,6 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
-
-// ======================= API Routes ======================= //
-
-// Need a route to retrieve model schemas
-
-// Need a route to build JSON
-app.post('/api/generate-configuration', routes.generateConfiguration);
-
-// Need a route to run sim
-app.get('/runSim', (req, res) => {
-  const result = spawnSync('npm', ['install'], {
-    cwd: this.destinationPath(),
-    stdio: 'inherit',
-    shell: true
-  });
-})
 
 // ======================= Start Server ======================= //
 app.listen(port, () => {
