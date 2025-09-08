@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import './App.css';
 import Navbar from './components/Navbar';
 import Page from './components/pages/Page';
 import ComponentsPage from './components/pages/components/ComponentsPage';
@@ -23,12 +22,12 @@ export default function App() {
   }
 
   return (
-    <>
+    <div className='flex h-screen'>
       <Navbar pageList={Object.keys(pages)} currentPage={currentPage} onPageChange={setCurrentPage} />
-      <div className='page-container'>
+      <div className='flex flex-col h-full w-full p-8 overflow-hidden'>
         {pages[currentPage].page}
       </div>
-    </>
+    </div>
   );
 
 }

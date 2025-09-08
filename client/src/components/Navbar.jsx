@@ -1,4 +1,3 @@
-import "./Navbar.css";
 import logo from '../assets/v_logo.svg';
 import pjson from '../../../package.json';
 import ThemeToggle from "./common/ThemeToggle";
@@ -8,8 +7,12 @@ export default function Navbar({ pageList, currentPage, onPageChange }) {
         return (
             <div
                 key={`navbar-btn-${page}`}
-                className={`navbar-btn ${currentPage === page ? "active" : ""}`}
                 onClick={() => onPageChange(page)}
+                className={[
+                    "flex w-full p-2 items-center gap-2.5 rounded text-xl font-bold cursor-pointer",
+                    "hover:bg-white/10",// hover styles
+                    currentPage === page ? "text-white bg-white/10" : "text-white/75 hover:text-white" // active styles (when current)
+                ].join(" ")}
             >
                 {page}
             </div>
@@ -17,17 +20,17 @@ export default function Navbar({ pageList, currentPage, onPageChange }) {
     }
 
     return (
-        <div className="navbar">
-            <div className="logo-container">
-                <img className='logo-v' src={logo} />
-                <span className="app-title">GridSim</span>
+        <div className="flex flex-col gap-5 bg-corvid-blue w-50 min-w-50 h-full px-4 py-8">
+            <div className="flex items-baseline justify-center text-white text-2xl font-bold">
+                <img className='h-12' src={logo} />
+                <span className="-ml-4">GridSim</span>
             </div>
-            <div className="navbar-btn-container">
+            <div className="flex flex-col gap-4 h-full w-full">
                 {pageList.map(page => createPageButton(page))}
             </div>
-            <div className="navbar-extras-container">
+            <div className="flex flex-col items-center justify-end gap-4 w-full">
                 <ThemeToggle />
-                <span className="app-version-number">v {pjson.version}</span>
+                <span className="text-[#d9d9d9] italic">v {pjson.version}</span>
             </div>
         </div>
     )

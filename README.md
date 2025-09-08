@@ -1,12 +1,15 @@
-# React + Vite
+## Download Node
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Submodule Init
 
-Currently, two official plugins are available:
+## Install Dependencies
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Run `npm install` from the root directory
 
-## Expanding the ESLint configuration
+This will install all dependencies into a node_modules folder
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Running
+
+Run `npm run dev`
+
+This will spin up the web server, and you will see two locahost addresses in the command line. CTRL+Click on the blue one `http://localhost:5180/`. This will open up the browser to the web app.
