@@ -1,28 +1,9 @@
-* {
-  box-sizing: border-box;
-  font-family: 'Public Sans', 'PT Sans', sans-serif !important;
+@import "tailwindcss";
 
-  --corvid-blue: #23356B;
-  --corvid-primary: #6FA5ED;
-  --corvid-primary-hover: hsl(214, 78%, 60%);
-  --corvid-blue-25: rgba(35, 53, 107, .25);
-  --corvid-blue-50: rgba(35, 53, 107, .50);
-  --corvid-primary-25: rgba(111, 165, 237, .25);
-}
+@theme {
+  --color-corvid-blue: #23356B;
+  --color-corvid-primary: #6FA5ED;
+  --color-corvid-blue: #23356B;
 
-html,
-body,
-#root {
-  margin: 0;
-  height: 100%;
-  width: 100%;
-}
-
-#root {
-  display: flex;
-  flex-direction: row;
-}
-
-button {
-  cursor: pointer;
+  --font-sans: "Public Sans", "PT Sans", sans-serif;
 }
