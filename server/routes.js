@@ -261,7 +261,7 @@ function createCosimRunner(deployRoot, name, nodes, onLog = () => { }) {
     const template = {
         name,
         logging_path: "",
-        broker: { coreType: "zmq", initString: `--federates=2 --localport=23500` },
+        broker: { coreType: "zmq", initString: `--federates=${federates.length} --localport=23500` },
         federates
     };
 
