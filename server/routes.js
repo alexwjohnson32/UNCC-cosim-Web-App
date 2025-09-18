@@ -220,7 +220,7 @@ object helics_msg {
             const glmPath = path.join(dNodeDir, `${dId}.glm`);
             fs.writeFileSync(glmPath, glmContent, 'utf8');
 
-            const jsonConfig = getJSONObject(dId);
+            const jsonConfig = getJSONObject(tNode.name, dId);
             const jsonPath = path.join(dNodeDir, `${dId}.json`);
             fs.writeFileSync(jsonPath, JSON.stringify(jsonConfig, null, 2));
 
@@ -231,7 +231,7 @@ object helics_msg {
 }
 
 
-function getJSONObject(dNode) {
+function getJSONObject(parent, dNode) {
     return {
         coreInit: "--federates=1",
         coreType: "zmq",
@@ -247,9 +247,9 @@ function getJSONObject(dNode) {
             { global: true, key: `${dNode}/Sc`, type: "complex", unit: "VA", info: { object: "HVMV_Sub_HSB", property: "measured_power_C" } }
         ],
         subscriptions: [
-            { required: true, key: "gridpack/Va", type: "complex", unit: "V", info: { object: "HVMV_Sub_HSB", property: "voltage_A" } },
-            { required: true, key: "gridpack/Vb", type: "complex", unit: "V", info: { object: "HVMV_Sub_HSB", property: "voltage_B" } },
-            { required: true, key: "gridpack/Vc", type: "complex", unit: "V", info: { object: "HVMV_Sub_HSB", property: "voltage_C" } }
+            { required: true, key: `${parent}/Va`, type: "complex", unit: "V", info: { object: "HVMV_Sub_HSB", property: "voltage_A" } },
+            { required: true, key: `${parent}/Vb`, type: "complex", unit: "V", info: { object: "HVMV_Sub_HSB", property: "voltage_B" } },
+            { required: true, key: `${parent}/Vc`, type: "complex", unit: "V", info: { object: "HVMV_Sub_HSB", property: "voltage_C" } }
         ]
     };
 }
