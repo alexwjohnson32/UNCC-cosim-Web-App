@@ -138,9 +138,9 @@ export const generateConfiguration = async (req, res) => {
         log += `Created ${DEPLOY_DIR}\n`;
 
         // 2) Populate like the old /output: runnable_cosim.json, transmission/, distribution/
-        createCosimRunner(DEPLOY_DIR, simName, nodes, (line) => (log += line + '\n'));
         createTransmissionInputs(DEPLOY_DIR, nodes, (line) => (log += line + '\n'));
         createDistributionInputs(DEPLOY_DIR, nodes, (line) => (log += line + '\n'));
+        createCosimRunner(DEPLOY_DIR, simName, nodes, (line) => (log += line + '\n'));
 
         const ok = fs.existsSync(path.join(DEPLOY_DIR, 'runnable_cosim.json'));
         return res.status(200).json({ success: ok, deployDir: DEPLOY_DIR, log });
@@ -196,7 +196,7 @@ function createDistributionInputs(deployRoot, nodes, onLog = () => { }) {
             const glmContent = `#include "../${BASELINE_FILENAME}"
 
 object helics_msg {
-    name ${dNode}_conn;
+    name ${dNode};
     configure ${dNode}.json;
 }`;
             const glmPath = path.join(dNodeDir, `${dNode}.glm`);
@@ -216,16 +216,16 @@ function getJSONObject(dNode) {
     return {
         coreInit: "--federates=1",
         coreType: "zmq",
-        name: `${dNode}_fed`,
+        name: `${dNode}`,
         offset: 0.0,
         period: 1.0,
         uninterruptible: true,
         logfile: `${dNode}.log`,
         log_level: "debug",
         publications: [
-            { global: true, key: `${dNode}_conn/Sa`, type: "complex", unit: "VA", info: { object: "HVMV_Sub_HSB", property: "measured_power_A" } },
-            { global: true, key: `${dNode}_conn/Sb`, type: "complex", unit: "VA", info: { object: "HVMV_Sub_HSB", property: "measured_power_B" } },
-            { global: true, key: `${dNode}_conn/Sc`, type: "complex", unit: "VA", info: { object: "HVMV_Sub_HSB", property: "measured_power_C" } }
+            { global: true, key: `${dNode}/Sa`, type: "complex", unit: "VA", info: { object: "HVMV_Sub_HSB", property: "measured_power_A" } },
+            { global: true, key: `${dNode}/Sb`, type: "complex", unit: "VA", info: { object: "HVMV_Sub_HSB", property: "measured_power_B" } },
+            { global: true, key: `${dNode}/Sc`, type: "complex", unit: "VA", info: { object: "HVMV_Sub_HSB", property: "measured_power_C" } }
         ],
         subscriptions: [
             { required: true, key: "gridpack/Va", type: "complex", unit: "V", info: { object: "HVMV_Sub_HSB", property: "voltage_A" } },
@@ -240,22 +240,36 @@ function createCosimRunner(deployRoot, name, nodes, onLog = () => { }) {
     const federates = [];
 
     for (const tNode of Object.values(nodes)) {
+        // Create helics_setup.json for the transmission node
+        const setupObj = {
+            "gridpack_name": tNode.name,
+            "gridlabd_infos": [],
+            "total_time": 60.0,
+            "ln_magnitude": 79600.0
+        }
+
         federates.push({
             directory: `transmission/${TRANSMISSION_MODEL}/${tNode.name}`,
             // safer command HELICS will accept (shell parses args)
             exec: "/bin/sh -c './powerflow_ex.x helics_setup.json'",
             host: "localhost",
-            name: `${tNode.name}_fed`
+            name: `${tNode.name}`
         });
 
-        for (const dNode of tNode.children) {
+        tNode.children.forEach((dNode, index) => {
+            setupObj.gridlabd_infos.push({ "name": dNode, "bus_id": index + 1 });
             federates.push({
                 directory: `distribution/${DISTRIBUTION_MODEL}/${dNode}`,
                 exec: `gridlabd.sh ${dNode}.glm`,
                 host: "localhost",
-                name: `${dNode}_fed`
+                name: `${dNode}`
             });
-        }
+        });
+
+        // Write out the helics_setup to a file
+        const outputPath = path.join(deployRoot, `transmission/${TRANSMISSION_MODEL}/${tNode.name}/helics_setup.json`);
+        fs.writeFileSync(outputPath, JSON.stringify(setupObj, null, 2), 'utf8');
+        onLog(`✔ Created helics_setup.json for ${tNode.name} at ${outputPath}`);
     }
 
     const template = {
