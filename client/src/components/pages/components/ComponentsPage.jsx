@@ -59,9 +59,21 @@ export default function ComponentsPage() {
     function addDistributionNode(parent) {
         const distNumber = nextDId[parent] ?? 1;
         const newDId = `${parent}-D${distNumber}`;
-        const updatedParent = { ...nodes[parent], children: [...nodes[parent].children, newDId] };
+        const updatedParent = {
+            ...nodes[parent],
+            children: [...nodes[parent].children, { id: newDId, bus_id: 1 }]
+        };
         setNodes({ ...nodes, [parent]: updatedParent });
         setNextDId((prev) => ({ ...prev, [parent]: distNumber + 1 }));
+    }
+
+    function updateChildBusId(parentId, childId, busId) {
+        setNodes(prev => {
+            const parent = prev[parentId];
+            if (!parent) return prev;
+            const updatedChildren = parent.children.map(c => c.id === childId ? { ...c, bus_id: busId } : c);
+            return { ...prev, [parentId]: { ...parent, children: updatedChildren } };
+        });
     }
 
     function removeTransmissionNode(nodeId) {
@@ -73,8 +85,8 @@ export default function ComponentsPage() {
     function removeDistributionNode(nodeId) {
         const updated = { ...nodes };
         for (const [k, v] of Object.entries(updated)) {
-            if (v.children.includes(nodeId)) {
-                updated[k] = { ...v, children: v.children.filter((id) => id !== nodeId) };
+            if (v.children.some(c => c.id === nodeId)) {
+                updated[k] = { ...v, children: v.children.filter(c => c.id !== nodeId) };
                 break;
             }
         }
@@ -117,22 +129,37 @@ export default function ComponentsPage() {
         );
     }
 
-    function createDistributionNodeCard(distId) {
-        const parentEntry = Object.entries(nodes).find(([, node]) => node.children.includes(distId));
+    function createDistributionNodeCard(child) {
+        // Find parent that contains this child
+        const parentEntry = Object.entries(nodes).find(([, node]) =>
+            node.children.some(c => c.id === child.id)
+        );
         const parentId = parentEntry ? parentEntry[0] : "—";
+
         return (
-            <div className="relative flex flex-col gap-1 h-25 w-full p-4 bg-black/5 rounded-lg" key={distId}>
-                <span className="font-bold">GridLab-D - {distId}</span>
-                <span className="text-sm">
-                    <strong>ID:</strong> {distId}
-                </span>
-                <span className="text-sm">
-                    <strong>Parent:</strong> {parentId}
-                </span>
+            <div className="relative flex flex-col gap-1 w-full p-4 bg-black/5 rounded-lg" key={child.id}>
+                <span className="font-bold">GridLab-D - {child.id}</span>
+                <span className="text-sm"><strong>ID:</strong> {child.id}</span>
+                <span className="text-sm"><strong>Parent:</strong> {parentId}</span>
+
+                <div className="flex flex-row gap-1 items-center">
+                    <span className="text-sm font-bold">Bus ID:</span>
+                    <select
+                        id={`bus-${child.id}`}
+                        className="w-16 bg-white border-1 rounded-sm"
+                        value={child.bus_id}
+                        onChange={(e) => updateChildBusId(parentId, child.id, Number(e.target.value))}
+                    >
+                        {Array.from({ length: 118 }, (_, i) => i + 1).map(n => (
+                            <option key={n} value={n}>{n}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <div className="absolute right-4 bottom-4 flex flex-row gap-2 justify-center items-center">
                     <div
                         className="flex items-center justify-center h-6 w-6 cursor-pointer"
-                        onClick={() => removeDistributionNode(distId)}
+                        onClick={() => removeDistributionNode(child.id)}
                         title="Remove distribution node"
                     >
                         <Trash2 className="h-5 w-5 text-[#fb4b4b]/75 fill-[#fb4b4b]/75 hover:text-[#fb4b4b] hover:fill-[#fb4b4b]" />
@@ -275,7 +302,7 @@ export default function ComponentsPage() {
                                 <div className="flex flex-col grow min-h-0 overflow-y-auto gap-2 p-4">
                                     {Object.values(nodes)
                                         .flatMap((n) => n.children)
-                                        .map((id) => createDistributionNodeCard(id))}
+                                        .map(child => createDistributionNodeCard(child))}
                                 </div>
                             </div>
                         </div>

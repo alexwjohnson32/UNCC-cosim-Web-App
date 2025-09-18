@@ -22,6 +22,19 @@ function firstExisting(paths) {
     }
     return null;
 }
+
+function normalizeNodesShape(nodes) {
+    // Ensures each child is { id, bus_id }, defaulting bus_id=1 if missing.
+    const out = {};
+    for (const [tId, tNode] of Object.entries(nodes ?? {})) {
+        const children = (tNode.children ?? []).map((c, i) =>
+            typeof c === "string" ? { id: c, bus_id: 1 } : { id: c.id, bus_id: c.bus_id ?? 1 }
+        );
+        out[tId] = { ...tNode, children };
+    }
+    return out;
+}
+
 const APP_IMAGE_DEFAULTS = [
     process.env.APP_IMAGE,
     path.resolve(PROJECT_ROOT, '..', '..', '..', 'uncc_dir', 'uncc_images', 'rl8_uncc_full_image.sif'),
@@ -120,10 +133,14 @@ export const runInApptainer = async (req, res) => {
  * Returns: { success, deployDir, log }
  * ============================ */
 export const generateConfiguration = async (req, res) => {
-    const { simName, nodes } = req.body || {};
+    const { simName } = req.body || {};
+    let { nodes } = req.body || {};
     if (!simName || !nodes) {
         return res.status(400).json({ success: false, error: 'simName and nodes are required' });
     }
+
+    // NEW: normalize to { id, bus_id } children
+    nodes = normalizeNodesShape(nodes);
 
     // Simple text log we’ll return for the GUI to display
     let log = '';
@@ -187,23 +204,24 @@ function createDistributionInputs(deployRoot, nodes, onLog = () => { }) {
     }
     onLog(`✔ Baseline: ${baselineTargetPath}`);
 
-    // Generate files for each distribution node
+    // Generate files for each distribution node (use child.id)
     for (const tNode of Object.values(nodes)) {
         for (const dNode of tNode.children) {
-            const dNodeDir = path.join(ieeeDir, dNode);
+            const dId = dNode.id;
+            const dNodeDir = path.join(ieeeDir, dId);
             fs.mkdirSync(dNodeDir, { recursive: true });
 
             const glmContent = `#include "../${BASELINE_FILENAME}"
 
 object helics_msg {
-    name ${dNode};
-    configure ${dNode}.json;
+    name ${dId};
+    configure ${dId}.json;
 }`;
-            const glmPath = path.join(dNodeDir, `${dNode}.glm`);
+            const glmPath = path.join(dNodeDir, `${dId}.glm`);
             fs.writeFileSync(glmPath, glmContent, 'utf8');
 
-            const jsonConfig = getJSONObject(dNode);
-            const jsonPath = path.join(dNodeDir, `${dNode}.json`);
+            const jsonConfig = getJSONObject(dId);
+            const jsonPath = path.join(dNodeDir, `${dId}.json`);
             fs.writeFileSync(jsonPath, JSON.stringify(jsonConfig, null, 2));
 
             onLog(`✔ Distribution: ${glmPath}`);
@@ -211,6 +229,7 @@ object helics_msg {
         }
     }
 }
+
 
 function getJSONObject(dNode) {
     return {
@@ -235,43 +254,60 @@ function getJSONObject(dNode) {
     };
 }
 
-// Writes runnable_cosim.json under deployRoot
 function createCosimRunner(deployRoot, name, nodes, onLog = () => { }) {
     const federates = [];
 
     for (const tNode of Object.values(nodes)) {
-        // Create helics_setup.json for the transmission node
-        const setupObj = {
-            "gridpack_name": tNode.name,
-            "gridlabd_infos": [],
-            "total_time": 60.0,
-            "ln_magnitude": 79600.0
+        // Group dNodes by bus_id -> [name,...]
+        const byBus = new Map();
+        for (const d of tNode.children) {
+            // children may be strings or objects; normalize
+            const dId = typeof d === "string" ? d : d.id;
+            const bus = typeof d === "string" ? 1 : (Number.isFinite(d.bus_id) ? d.bus_id : 1);
+            const arr = byBus.get(bus) ?? [];
+            arr.push(dId);
+            byBus.set(bus, arr);
+
+            // Distribution federate for each dNode (unchanged)
+            federates.push({
+                directory: `distribution/${DISTRIBUTION_MODEL}/${dId}`,
+                exec: `gridlabd.sh ${dId}.glm`,
+                host: "localhost",
+                name: `${dId}`
+            });
         }
 
+        // Build grouped gridlabd_infos: [{ bus_id, names: [...] }, ...]
+        const gridlabd_infos = Array.from(byBus.entries())
+            .sort((a, b) => a[0] - b[0]) // optional: stable order by bus_id
+            .map(([bus_id, names]) => ({ bus_id, names }));
+
+        // Transmission setup (now with grouped infos)
+        const setupObj = {
+            gridpack_name: tNode.name,
+            gridlabd_infos,
+            total_time: 60.0,
+            ln_magnitude: 79600.0
+        };
+
+        // Transmission federate
         federates.push({
             directory: `transmission/${TRANSMISSION_MODEL}/${tNode.name}`,
-            // safer command HELICS will accept (shell parses args)
             exec: "/bin/sh -c './powerflow_ex.x helics_setup.json'",
             host: "localhost",
             name: `${tNode.name}`
         });
 
-        tNode.children.forEach((dNode, index) => {
-            setupObj.gridlabd_infos.push({ "name": dNode, "bus_id": index + 1 });
-            federates.push({
-                directory: `distribution/${DISTRIBUTION_MODEL}/${dNode}`,
-                exec: `gridlabd.sh ${dNode}.glm`,
-                host: "localhost",
-                name: `${dNode}`
-            });
-        });
-
-        // Write out the helics_setup to a file
-        const outputPath = path.join(deployRoot, `transmission/${TRANSMISSION_MODEL}/${tNode.name}/helics_setup.json`);
-        fs.writeFileSync(outputPath, JSON.stringify(setupObj, null, 2), 'utf8');
-        onLog(`✔ Created helics_setup.json for ${tNode.name} at ${outputPath}`);
+        // Write helics_setup.json per T node
+        const setupPath = path.join(
+            deployRoot,
+            `transmission/${TRANSMISSION_MODEL}/${tNode.name}/helics_setup.json`
+        );
+        fs.writeFileSync(setupPath, JSON.stringify(setupObj, null, 2), "utf8");
+        onLog(`✔ Created helics_setup.json for ${tNode.name} at ${setupPath}`);
     }
 
+    // Broker + federates template
     const template = {
         name,
         logging_path: "",
@@ -279,7 +315,7 @@ function createCosimRunner(deployRoot, name, nodes, onLog = () => { }) {
         federates
     };
 
-    const outputPath = path.join(deployRoot, 'runnable_cosim.json');
-    fs.writeFileSync(outputPath, JSON.stringify(template, null, 2), 'utf8');
+    const outputPath = path.join(deployRoot, "runnable_cosim.json");
+    fs.writeFileSync(outputPath, JSON.stringify(template, null, 2), "utf8");
     onLog(`✔ Created runnable_cosim.json at ${outputPath}`);
 }
