@@ -107,9 +107,10 @@ export const runInApptainer = async (req, res) => {
             return res.status(500).json({ success: false, error: 'Apptainer image not found.', tried: APP_IMAGE_DEFAULTS });
         }
 
+        // TODO: Work on figuring out how to provide the deploy directory as an input argument here
         const { code, log, args, hostAbs, containerPwd } = await runApptainerExec({
             hostRoot: PROJECT_ROOT,
-            insideCmd: './run.sh --existing',
+            insideCmd: './run.sh',
             imagePath
         });
 
