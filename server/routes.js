@@ -4,7 +4,7 @@ import path from 'path';
 
 // ===== Paths & Apptainer config =====
 const PROJECT_ROOT = path.resolve(process.cwd());
-const CONTAINER_SUBDIR = 'server/uncc-corvid/corvid/scalability'; // where build.sh & run.sh live
+const CONTAINER_SUBDIR = 'server/uncc-corvid/scalability'; // where build.sh & run.sh live
 const BUILD_DIR = path.join(PROJECT_ROOT, CONTAINER_SUBDIR, 'build');
 const DEPLOY_DIR = path.join(BUILD_DIR, 'deploy');
 
@@ -66,7 +66,7 @@ function runApptainerExec({ hostRoot, insideCmd, imagePath }) {
 
 /* ============================
  * POST /api/build
- * Build your C++ (via build.sh in the container).
+ * Build your C++ (via rebuild.sh in the container).
  * Returns: { success, exitCode, buildDir, log, apptainer }
  * ============================ */
 export const buildInApptainer = async (req, res) => {
@@ -78,7 +78,7 @@ export const buildInApptainer = async (req, res) => {
 
         const { code, log, args, hostAbs, containerPwd } = await runApptainerExec({
             hostRoot: PROJECT_ROOT,
-            insideCmd: './build.sh',
+            insideCmd: './rebuild.sh ${TEMPLATE_DIR}',
             imagePath
         });
 
