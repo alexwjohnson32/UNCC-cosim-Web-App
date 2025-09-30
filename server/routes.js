@@ -134,10 +134,10 @@ export const runInApptainer = async (req, res) => {
  * Returns: { success, deployDir, log }
  * ============================ */
 export const generateConfiguration = async (req, res) => {
-    const { simName, timezone, startTime, endTime } = req.body || {};
+    const { simName, timezone, startTime, endTime, durationSec } = req.body || {};
     let { nodes } = req.body || {};
-    if (!simName || !timezone || !startTime || !endTime || !nodes) {
-        return res.status(400).json({ success: false, error: 'simName, timezone, startTime, stopTime, and nodes are required' });
+    if (!simName || !timezone || !startTime || !endTime || !durationSec || !nodes) {
+        return res.status(400).json({ success: false, error: 'simName, timezone, startTime, stopTime, durationSec, and nodes are required' });
     }
 
     // NEW: normalize to { id, bus_id } children
@@ -158,7 +158,7 @@ export const generateConfiguration = async (req, res) => {
         // 2) Populate like the old /output: runnable_cosim.json, transmission/, distribution/
         createTransmissionInputs(DEPLOY_DIR, nodes, (line) => (log += line + '\n'));
         createDistributionInputs(DEPLOY_DIR, nodes, timezone, startTime, endTime, (line) => (log += line + '\n'));
-        createCosimRunner(DEPLOY_DIR, simName, nodes, (line) => (log += line + '\n'));
+        createCosimRunner(DEPLOY_DIR, simName, nodes, durationSec, (line) => (log += line + '\n'));
 
         const ok = fs.existsSync(path.join(DEPLOY_DIR, 'runnable_cosim.json'));
         return res.status(200).json({ success: ok, deployDir: DEPLOY_DIR, log });
@@ -261,7 +261,7 @@ function getJSONObject(parent, dNode) {
     };
 }
 
-function createCosimRunner(deployRoot, name, nodes, onLog = () => { }) {
+function createCosimRunner(deployRoot, name, nodes, durationSec, onLog = () => { }) {
     const federates = [];
 
     for (const tNode of Object.values(nodes)) {
@@ -293,7 +293,7 @@ function createCosimRunner(deployRoot, name, nodes, onLog = () => { }) {
         const setupObj = {
             gridpack_name: tNode.name,
             gridlabd_infos,
-            total_time: 60.0,
+            total_time: durationSec,
             ln_magnitude: 79600.0
         };
 

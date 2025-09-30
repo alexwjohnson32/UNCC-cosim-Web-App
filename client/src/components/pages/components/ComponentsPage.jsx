@@ -92,6 +92,7 @@ export default function ComponentsPage() {
     const [durMinutes, setDurMinutes] = useState(0);
 
     const durationMinutes = useMemo(() => durHours * 60 + durMinutes, [durHours, durMinutes]);
+    const durationSeconds = useMemo(() => durationMinutes * 60.0, [durationMinutes]);
 
     // Derived datetimes in requested format
     const startDate = useMemo(() => new Date(`${dateLocal}T${timeLocal}:00`), [dateLocal, timeLocal]);
@@ -256,6 +257,7 @@ export default function ComponentsPage() {
                     timezone: TIMEZONE_LABEL,
                     startTime: START_DATETIME_STR,
                     endTime: END_DATETIME_STR,
+                    durationSec: durationSeconds,
                     nodes,
                 }),
             });
