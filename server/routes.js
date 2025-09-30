@@ -134,10 +134,10 @@ export const runInApptainer = async (req, res) => {
  * Returns: { success, deployDir, log }
  * ============================ */
 export const generateConfiguration = async (req, res) => {
-    const { simName } = req.body || {};
+    const { simName, timezone, startTime, endTime } = req.body || {};
     let { nodes } = req.body || {};
-    if (!simName || !nodes) {
-        return res.status(400).json({ success: false, error: 'simName and nodes are required' });
+    if (!simName || !timezone || !startTime || !endTime || !nodes) {
+        return res.status(400).json({ success: false, error: 'simName, timezone, startTime, stopTime, and nodes are required' });
     }
 
     // NEW: normalize to { id, bus_id } children
@@ -157,7 +157,7 @@ export const generateConfiguration = async (req, res) => {
 
         // 2) Populate like the old /output: runnable_cosim.json, transmission/, distribution/
         createTransmissionInputs(DEPLOY_DIR, nodes, (line) => (log += line + '\n'));
-        createDistributionInputs(DEPLOY_DIR, nodes, (line) => (log += line + '\n'));
+        createDistributionInputs(DEPLOY_DIR, nodes, timezone, startTime, endTime, (line) => (log += line + '\n'));
         createCosimRunner(DEPLOY_DIR, simName, nodes, (line) => (log += line + '\n'));
 
         const ok = fs.existsSync(path.join(DEPLOY_DIR, 'runnable_cosim.json'));
@@ -194,7 +194,7 @@ function createTransmissionInputs(deployRoot, nodes, onLog = () => { }) {
  * Create deployRoot/distribution/<Model>/nodeID structure,
  * copy baseline to model-level once, and create per-node .glm/.json.
  */
-function createDistributionInputs(deployRoot, nodes, onLog = () => { }) {
+function createDistributionInputs(deployRoot, nodes, timezone, startTime, endTime, onLog = () => { }) {
     const ieeeDir = path.join(deployRoot, 'distribution', DISTRIBUTION_MODEL);
     fs.mkdirSync(ieeeDir, { recursive: true });
 
@@ -217,6 +217,12 @@ function createDistributionInputs(deployRoot, nodes, onLog = () => { }) {
 object helics_msg {
     name ${dId};
     configure ${dId}.json;
+}
+    
+clock {
+     timezone ${timezone};
+     starttime '${startTime}';
+     stoptime '${endTime}';
 }`;
             const glmPath = path.join(dNodeDir, `${dId}.glm`);
             fs.writeFileSync(glmPath, glmContent, 'utf8');

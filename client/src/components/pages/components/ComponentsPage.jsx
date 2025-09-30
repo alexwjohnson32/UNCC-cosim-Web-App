@@ -1,6 +1,5 @@
-// src/pages/ComponentsPage.jsx
 import { Plug2, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Page from "../Page";
 
 export default function ComponentsPage() {
@@ -44,6 +43,63 @@ export default function ComponentsPage() {
             `${prev}${prev ? "\n\n" : ""}===== ${sectionTitle} @ ${now()} =====\n${body || "(no output)"}`
         );
     }
+
+    // ---------- NEW: Date/Time + Duration + TZ label ----------
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const fmtYMD_HMS = (d) =>
+        `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+    const toDateInput = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const toTimeInput = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+    // system IANA zone (used only to derive a static label)
+    const sysTZ = (() => {
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; }
+        catch { return "UTC"; }
+    })();
+
+    // Build const like "PST+8PDT" (standard abbr + positive hours + daylight abbr)
+    const TIMEZONE_LABEL = useMemo(() => {
+        const y = new Date().getFullYear();
+        const jan1 = new Date(y, 0, 1);
+        const jul1 = new Date(y, 6, 1);
+
+        const abbr = (when) => {
+            try {
+                const s = new Intl.DateTimeFormat("en-US", {
+                    timeZone: sysTZ,
+                    timeZoneName: "short",
+                    hour: "2-digit",
+                }).format(when);
+                return s.split(" ").pop() || "UTC";
+            } catch {
+                return "UTC";
+            }
+        };
+
+        const stdAbbr = abbr(jan1); // e.g., PST / CST / GMT
+        const dstAbbr = abbr(jul1); // e.g., PDT / CDT / GMT
+
+        // Positive hour count for the standard offset (PST -> 8)
+        const stdOffsetHours = Math.abs(Math.round(jan1.getTimezoneOffset() / 60));
+        return `${stdAbbr}+${stdOffsetHours}${dstAbbr}`;
+    }, [sysTZ]);
+
+    // datetime + duration inputs
+    const nowLocal = new Date();
+    const [dateLocal, setDateLocal] = useState(toDateInput(nowLocal));
+    const [timeLocal, setTimeLocal] = useState(toTimeInput(nowLocal));
+    const [durHours, setDurHours] = useState(1);
+    const [durMinutes, setDurMinutes] = useState(0);
+
+    const durationMinutes = useMemo(() => durHours * 60 + durMinutes, [durHours, durMinutes]);
+
+    // Derived datetimes in requested format
+    const startDate = useMemo(() => new Date(`${dateLocal}T${timeLocal}:00`), [dateLocal, timeLocal]);
+    const START_DATETIME_STR = useMemo(() => fmtYMD_HMS(startDate), [startDate]);
+    const END_DATETIME_STR = useMemo(() => {
+        const end = new Date(startDate.getTime() + durationMinutes * 60_000);
+        return fmtYMD_HMS(end);
+    }, [startDate, durationMinutes]);
 
     // ---------- Node management ----------
     function createTransmissionNode() {
@@ -197,6 +253,9 @@ export default function ComponentsPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     simName: simName || "sim",
+                    timezone: TIMEZONE_LABEL,
+                    startTime: START_DATETIME_STR,
+                    endTime: END_DATETIME_STR,
                     nodes,
                 }),
             });
@@ -241,17 +300,84 @@ export default function ComponentsPage() {
     return (
         <Page metadata={"Components"}>
             {/* Full-height column so the log pane can fill */}
-            <div className="flex flex-col h-full min-h-0">
-                {/* Simulation name */}
-                <div className="flex flex-row items-center gap-2 w-full">
-                    <span>Simulation Name:</span>
-                    <input
-                        className="w-[500px]"
-                        type="text"
-                        value={simName}
-                        onChange={(e) => setSimName(e.target.value)}
-                        placeholder="Enter a simulation name"
-                    />
+            <div className="flex flex-col h-full min-h-0 pt-4">
+                {/* Simulation Options */}
+                <div className="flex flex-row p-4 bg-black/5 rounded-sm gap-6 items-end flex-wrap">
+                    {/* Simulation name */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-sm">Simulation Name</label>
+                        <input
+                            className="w-[340px] border-b border-black/25 hover:border-black/75 bg-transparent outline-none py-1"
+                            type="text"
+                            value={simName}
+                            onChange={(e) => setSimName(e.target.value)}
+                            placeholder="Enter a simulation name"
+                        />
+                    </div>
+
+                    {/* Start date */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-sm">Start date</label>
+                        <input
+                            type="date"
+                            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={dateLocal}
+                            onChange={(e) => setDateLocal(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Start time + TZ indicator */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-sm">Start time</label>
+                        <div className="flex items-end gap-2">
+                            <input
+                                type="time"
+                                step="60"
+                                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                value={timeLocal}
+                                onChange={(e) => setTimeLocal(e.target.value)}
+                            />
+                            <span
+                                className="text-xs text-gray-500"
+                                title={sysTZ}
+                            >
+                                {TIMEZONE_LABEL}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Duration */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-sm">Duration</label>
+                        <div className="flex items-end gap-2">
+                            <div className="flex flex-row items-end gap-2">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    className="w-24 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    value={durHours}
+                                    onChange={(e) => setDurHours(Math.max(0, parseInt(e.target.value || "0", 10)))}
+                                    placeholder="Hours"
+                                />
+                                <p className="text-xs text-gray-500">Hours</p>
+                            </div>
+                            <div className="flex flex-row items-end gap-2">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={59}
+                                    className="w-24 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    value={durMinutes}
+                                    onChange={(e) => {
+                                        const n = Math.min(59, Math.max(0, parseInt(e.target.value || "0", 10)));
+                                        setDurMinutes(Number.isFinite(n) ? n : 0);
+                                    }}
+                                    placeholder="Min"
+                                />
+                                <p className="text-xs text-gray-500">Minutes</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Error banner */}
