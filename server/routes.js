@@ -42,7 +42,7 @@ const APP_IMAGE_DEFAULTS = [
 ];
 
 // Run apptainer with identity bind so host paths match in container
-function runApptainerExec({ hostRoot, insideCmd, imagePath }) {
+function runApptainerExec({ hostRoot, insideCmd, imagePath, detached = false, collectLogs = true }) {
     const hostAbs = path.resolve(hostRoot);
     const containerPwd = path.join(hostAbs, CONTAINER_SUBDIR).replace(/\\/g, '/');
 
@@ -54,15 +54,32 @@ function runApptainerExec({ hostRoot, insideCmd, imagePath }) {
         'bash', '-lc', insideCmd
     ];
 
+    if (detached) {
+        // Fire-and-forget: no logs, return immediately with pid
+        const child = spawn('apptainer', args, {
+            stdio: 'ignore',
+            detached: true,
+        });
+        child.unref();
+        return Promise.resolve({ pid: child.pid, args, hostAbs, containerPwd, imagePath });
+    }
+
+    // Default: collect logs and wait for completion
     return new Promise((resolve, reject) => {
-        const child = spawn('apptainer', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        const stdio = collectLogs ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'ignore', 'ignore'];
+        const child = spawn('apptainer', args, { stdio });
         let log = '';
-        child.stdout.on('data', d => { log += d.toString(); });
-        child.stderr.on('data', d => { log += d.toString(); });
+
+        if (collectLogs) {
+            child.stdout.on('data', d => { log += d.toString(); });
+            child.stderr.on('data', d => { log += d.toString(); });
+        }
+
         child.on('error', reject);
         child.on('close', code => resolve({ code, log, args, hostAbs, containerPwd, imagePath }));
     });
 }
+
 
 /* ============================
  * POST /api/build
@@ -107,23 +124,26 @@ export const runInApptainer = async (req, res) => {
             return res.status(500).json({ success: false, error: 'Apptainer image not found.', tried: APP_IMAGE_DEFAULTS });
         }
 
-        // TODO: Work on figuring out how to provide the deploy directory as an input argument here
-        const { code, log, args, hostAbs, containerPwd } = await runApptainerExec({
+        const { pid, args, hostAbs, containerPwd } = await runApptainerExec({
             hostRoot: PROJECT_ROOT,
             insideCmd: './run.sh',
-            imagePath
+            imagePath,
+            detached: true,
+            collectLogs: false,
         });
 
-        return res.status(200).json({
-            success: Number.isInteger(code) ? code === 0 : false,
-            exitCode: Number.isInteger(code) ? code : -1,
-            log,
+        return res.status(202).json({
+            success: true,
+            message: 'Apptainer job started.',
+            pid,
+            startedAt: new Date().toISOString(),
             apptainer: { args, hostAbs, containerPwd, imagePath }
         });
     } catch (err) {
         return res.status(500).json({ success: false, error: String(err) });
     }
 };
+
 
 /* ============================
  * POST /api/config

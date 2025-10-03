@@ -1,5 +1,5 @@
 import { Plug2, Plus, Trash2 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Page from "../Page";
 
 export default function ComponentsPage() {
@@ -20,6 +20,31 @@ export default function ComponentsPage() {
 
     // Errors
     const [error, setError] = useState("");
+
+    // Sockets
+    const [wsConnected, setWsConnected] = useState(false);
+    const wsRef = useRef(null);
+
+    useEffect(() => {
+        const proto = window.location.protocol === "https:" ? "wss" : "ws";
+        const url = `${proto}://${window.location.host}/ws/logs`;
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
+
+        ws.onopen = () => setWsConnected(true);
+        ws.onclose = () => setWsConnected(false);
+        ws.onerror = () => setWsConnected(false);
+
+        ws.onmessage = (ev) => {
+            // Expecting a plain string line; if JSON is sent, handle here.
+            appendWsLine(setLog, ev.data);
+        };
+
+        return () => {
+            try { ws.close(); } catch { }
+            wsRef.current = null;
+        };
+    }, []);
 
     // ---------- Helpers ----------
     function now() {
@@ -42,6 +67,12 @@ export default function ComponentsPage() {
         setLog((prev) =>
             `${prev}${prev ? "\n\n" : ""}===== ${sectionTitle} @ ${now()} =====\n${body || "(no output)"}`
         );
+    }
+
+    // Append a single line without section header
+    function appendWsLine(setter, line) {
+        const text = (line ?? "").toString();
+        setter(prev => (prev ? `${prev}\n${text}` : text));
     }
 
     // ---------- NEW: Date/Time + Duration + TZ label ----------
@@ -396,6 +427,9 @@ export default function ComponentsPage() {
                         <div className="h-full flex flex-col">
                             <div className="flex justify-between items-center">
                                 <strong>Logs</strong>
+                                <span className={`text-xs ${wsConnected ? "text-green-600" : "text-gray-400"}`}>
+                                    {wsConnected ? "live" : "offline"}
+                                </span>
                             </div>
                             <div className="mt-2 flex-1 min-h-0 rounded border border-black/10 bg-white overflow-y-auto">
                                 <pre className="whitespace-pre-wrap text-xs font-mono p-2">
