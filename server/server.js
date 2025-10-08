@@ -66,6 +66,11 @@ wss.on('listening', () => {
 
 wss.on('connection', (ws) => {
   try { ws.send('connected'); } catch { }
+
+  ws.on('message', (data) => {
+    const line = data instanceof Buffer ? data.toString() : String(data);
+    broadcastLog(line); // fan out to everyone
+  });
 });
 
 // Broadcast helper used by /api/logs/append and any server-side producers

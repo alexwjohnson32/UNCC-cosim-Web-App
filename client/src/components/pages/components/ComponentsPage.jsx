@@ -24,24 +24,87 @@ export default function ComponentsPage() {
     // Sockets
     const [wsConnected, setWsConnected] = useState(false);
     const wsRef = useRef(null);
+    const logBoxRef = useRef(null);
 
     useEffect(() => {
-        const proto = window.location.protocol === "https:" ? "wss" : "ws";
-        const url = `${proto}://${window.location.host}/ws/logs`;
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
+        let stopped = false;
+        let retry = 0;
 
-        ws.onopen = () => setWsConnected(true);
-        ws.onclose = () => setWsConnected(false);
-        ws.onerror = () => setWsConnected(false);
-
-        ws.onmessage = (ev) => {
-            // Expecting a plain string line; if JSON is sent, handle here.
-            appendWsLine(setLog, ev.data);
+        const makeUrlCandidates = () => {
+            const isHttps = window.location.protocol === "https:";
+            const wss = isHttps ? "wss" : "ws";
+            // Primary: dedicated localhost:23555 WS server
+            const primary = `${wss}://localhost:23555/ws/logs`;
+            // Fallback: same-origin path (useful in dev or if you proxy WS)
+            const fallback = `${wss}://${window.location.host}/ws/logs`;
+            return [primary, fallback];
         };
 
+        const connect = async () => {
+            const urls = makeUrlCandidates();
+
+            for (const url of urls) {
+                if (stopped) return;
+                try {
+                    const ws = new WebSocket(url);
+                    wsRef.current = ws;
+
+                    ws.onopen = () => {
+                        setWsConnected(true);
+                        retry = 0; // reset backoff
+                    };
+                    ws.onclose = () => {
+                        setWsConnected(false);
+                        if (stopped) return;
+                        scheduleReconnect();
+                    };
+                    ws.onerror = () => {
+                        setWsConnected(false);
+                        try { ws.close(); } catch { }
+                    };
+                    ws.onmessage = async (ev) => {
+                        let text;
+                        if (typeof ev.data === "string") text = ev.data;
+                        else if (ev.data instanceof Blob) text = await ev.data.text();
+                        else if (ev.data instanceof ArrayBuffer) text = new TextDecoder().decode(ev.data);
+                        else text = String(ev.data);
+
+                        setLog((prev) => (prev ? prev + "\n" + text : text));
+                        if (logBoxRef.current) {
+                            const el = logBoxRef.current;
+                            el.scrollTop = el.scrollHeight;
+                        }
+                    };
+
+                    // If we got here, we initiated a connection attempt to this url.
+                    // Stop trying other candidates; events above will handle success/failure.
+                    return;
+                } catch (err) {
+                    // Bad URL or constructor failure — try next candidate
+                    // (Do not throw; never block render.)
+                    // console.debug("WS construct failed for", url, err);
+                    continue;
+                }
+            }
+
+            // If all candidates failed at construction time, schedule a reconnect.
+            scheduleReconnect();
+        };
+
+        const scheduleReconnect = () => {
+            if (stopped) return;
+            retry = Math.min(retry + 1, 6);
+            const delay = Math.min(1000 * 2 ** (retry - 1), 15000); // 1s → 15s cap
+            setTimeout(() => {
+                if (!stopped) connect();
+            }, delay);
+        };
+
+        connect();
+
         return () => {
-            try { ws.close(); } catch { }
+            stopped = true;
+            try { wsRef.current?.close(); } catch { }
             wsRef.current = null;
         };
     }, []);
@@ -431,7 +494,10 @@ export default function ComponentsPage() {
                                     {wsConnected ? "live" : "offline"}
                                 </span>
                             </div>
-                            <div className="mt-2 flex-1 min-h-0 rounded border border-black/10 bg-white overflow-y-auto">
+                            <div
+                                ref={logBoxRef}
+                                className="mt-2 flex-1 min-h-0 rounded border border-black/10 bg-white overflow-y-auto"
+                            >
                                 <pre className="whitespace-pre-wrap text-xs font-mono p-2">
                                     {log || "(no logs yet)"}
                                 </pre>
