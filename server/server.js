@@ -3,18 +3,34 @@ import cors from 'cors';
 import express from "express";
 import path from "path";
 import http from "http";
-import { WebSocketServer } from "ws";
 import { fileURLToPath } from "url";
 import * as routes from './routes.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// optional: allow overriding WS port via env
-const WS_PORT = Number(process.env.WS_PORT ?? 23555);
-
 app.use(cors());
 app.use(express.json());
+
+// ======================= In-memory log buffer ======================= //
+let LOG_SEQ = 0;
+/** @type {{ id:number, text:string, ts:number }[]} */
+const LOGS = [];
+
+function pushLog(text) {
+  // Split on newlines so each line is a separate entry (optional)
+  const lines = String(text ?? "").split(/\r?\n/);
+  for (const line of lines) {
+    if (line === "") continue; // skip empty lines; remove if you want to keep them
+    LOGS.push({ id: ++LOG_SEQ, text: line, ts: Date.now() });
+  }
+}
+
+function getLogsAfter(afterId) {
+  const aid = Number.isFinite(afterId) ? afterId : 0;
+  // LOGS are append-only; filter is fine for modest volumes. For big volumes, keep a moving window.
+  return LOGS.filter(e => e.id > aid);
+}
 
 // ======================= API Routes ======================= //
 
@@ -23,11 +39,13 @@ app.post('/api/config', routes.generateConfiguration);   // create config folder
 app.post('/api/build', routes.buildInApptainer);         // run build.sh in Apptainer
 app.post('/api/run', routes.runInApptainer);             // run run.sh in Apptainer
 
-// ---- Simple HTTP hook to push log lines to WS clients ----
+// ---- REST logs: producers POST, clients GET ----
+
+// POST raw text to append logs (Content-Type: text/plain recommended)
 app.post('/api/logs/append', express.text({ type: '*/*' }), (req, res) => {
-  const line = typeof req.body === 'string' ? req.body : '';
-  broadcastLog(line);
-  res.json({ success: true, bytes: Buffer.byteLength(line) });
+  const body = typeof req.body === 'string' ? req.body : '';
+  pushLog(body);
+  res.json({ success: true, lastId: LOG_SEQ, added: body.split(/\r?\n/).filter(Boolean).length });
 });
 
 // ======================= Serve Frontend in Production ======================= //
@@ -50,37 +68,3 @@ server.listen(port, () => {
     console.log('Running in development mode');
   }
 });
-
-// ======================= Standalone WS Server @ localhost:23555 ======================= //
-// This WS server is separate from the HTTP server and listens on its own port.
-// Other processes can connect via ws://localhost:23555/ws/logs
-const wss = new WebSocketServer({
-  port: WS_PORT,
-  host: '127.0.0.1',     // restrict to localhost
-  path: '/ws/logs'
-});
-
-wss.on('listening', () => {
-  console.log(`WebSocket listening on ws://localhost:${WS_PORT}/ws/logs`);
-});
-
-wss.on('connection', (ws) => {
-  try { ws.send('connected'); } catch { }
-
-  ws.on('message', (data) => {
-    const line = data instanceof Buffer ? data.toString() : String(data);
-    broadcastLog(line); // fan out to everyone
-  });
-});
-
-// Broadcast helper used by /api/logs/append and any server-side producers
-function broadcastLog(line) {
-  const msg = typeof line === 'string' ? line : JSON.stringify(line);
-  for (const client of wss.clients) {
-    if (client.readyState === 1) {
-      try { client.send(msg); } catch { }
-    }
-  }
-}
-
-export { broadcastLog, wss };

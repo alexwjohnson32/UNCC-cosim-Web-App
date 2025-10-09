@@ -21,92 +21,45 @@ export default function ComponentsPage() {
     // Errors
     const [error, setError] = useState("");
 
-    // Sockets
-    const [wsConnected, setWsConnected] = useState(false);
-    const wsRef = useRef(null);
-    const logBoxRef = useRef(null);
+    // ----- REST log polling (no websockets) -----
+    const [pollLive, setPollLive] = useState(false);
+    const cursorRef = useRef(0);      // last seen log id
+    const logBoxRef = useRef(null);   // for autoscroll
 
     useEffect(() => {
         let stopped = false;
-        let retry = 0;
 
-        const makeUrlCandidates = () => {
-            const isHttps = window.location.protocol === "https:";
-            const wss = isHttps ? "wss" : "ws";
-            // Primary: dedicated localhost:23555 WS server
-            const primary = `${wss}://localhost:23555/ws/logs`;
-            // Fallback: same-origin path (useful in dev or if you proxy WS)
-            const fallback = `${wss}://${window.location.host}/ws/logs`;
-            return [primary, fallback];
-        };
-
-        const connect = async () => {
-            const urls = makeUrlCandidates();
-
-            for (const url of urls) {
-                if (stopped) return;
+        const poll = async () => {
+            while (!stopped) {
                 try {
-                    const ws = new WebSocket(url);
-                    wsRef.current = ws;
+                    const res = await fetch(`/api/logs?after=${cursorRef.current}`);
+                    if (res.ok) {
+                        const j = await res.json();
+                        if (j?.entries?.length) {
+                            const joined = j.entries.map(e => e.text).join("\n");
+                            setLog(prev => (prev ? prev + "\n" + joined : joined));
+                            cursorRef.current = j.lastId ?? cursorRef.current;
 
-                    ws.onopen = () => {
-                        setWsConnected(true);
-                        retry = 0; // reset backoff
-                    };
-                    ws.onclose = () => {
-                        setWsConnected(false);
-                        if (stopped) return;
-                        scheduleReconnect();
-                    };
-                    ws.onerror = () => {
-                        setWsConnected(false);
-                        try { ws.close(); } catch { }
-                    };
-                    ws.onmessage = async (ev) => {
-                        let text;
-                        if (typeof ev.data === "string") text = ev.data;
-                        else if (ev.data instanceof Blob) text = await ev.data.text();
-                        else if (ev.data instanceof ArrayBuffer) text = new TextDecoder().decode(ev.data);
-                        else text = String(ev.data);
-
-                        setLog((prev) => (prev ? prev + "\n" + text : text));
-                        if (logBoxRef.current) {
-                            const el = logBoxRef.current;
-                            el.scrollTop = el.scrollHeight;
+                            // auto-scroll
+                            if (logBoxRef.current) {
+                                const el = logBoxRef.current;
+                                el.scrollTop = el.scrollHeight;
+                            }
                         }
-                    };
-
-                    // If we got here, we initiated a connection attempt to this url.
-                    // Stop trying other candidates; events above will handle success/failure.
-                    return;
-                } catch (err) {
-                    // Bad URL or constructor failure — try next candidate
-                    // (Do not throw; never block render.)
-                    // console.debug("WS construct failed for", url, err);
-                    continue;
+                        setPollLive(true);
+                    } else {
+                        setPollLive(false);
+                    }
+                } catch {
+                    setPollLive(false);
                 }
+                // poll interval
+                await new Promise(r => setTimeout(r, 1000));
             }
-
-            // If all candidates failed at construction time, schedule a reconnect.
-            scheduleReconnect();
         };
 
-        const scheduleReconnect = () => {
-            if (stopped) return;
-            retry = Math.min(retry + 1, 6);
-            const delay = Math.min(1000 * 2 ** (retry - 1), 15000); // 1s → 15s cap
-            setTimeout(() => {
-                if (!stopped) connect();
-            }, delay);
-        };
-
-        connect();
-
-        return () => {
-            stopped = true;
-            try { wsRef.current?.close(); } catch { }
-            wsRef.current = null;
-        };
+        poll();
+        return () => { stopped = true; };
     }, []);
 
     // ---------- Helpers ----------
@@ -121,7 +74,6 @@ export default function ComponentsPage() {
             const data = JSON.parse(text);
             return { ok: res.ok, status: res.status, data, raw: text };
         } catch {
-            // Non-JSON fallback (HTML or plain text)
             return { ok: false, status: res.status, data: null, raw: text };
         }
     }
@@ -132,12 +84,6 @@ export default function ComponentsPage() {
         );
     }
 
-    // Append a single line without section header
-    function appendWsLine(setter, line) {
-        const text = (line ?? "").toString();
-        setter(prev => (prev ? `${prev}\n${text}` : text));
-    }
-
     // ---------- NEW: Date/Time + Duration + TZ label ----------
     const pad2 = (n) => String(n).padStart(2, "0");
     const fmtYMD_HMS = (d) =>
@@ -145,13 +91,11 @@ export default function ComponentsPage() {
     const toDateInput = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
     const toTimeInput = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
-    // system IANA zone (used only to derive a static label)
     const sysTZ = (() => {
         try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; }
         catch { return "UTC"; }
     })();
 
-    // Build const like "PST+8PDT" (standard abbr + positive hours + daylight abbr)
     const TIMEZONE_LABEL = useMemo(() => {
         const y = new Date().getFullYear();
         const jan1 = new Date(y, 0, 1);
@@ -172,8 +116,6 @@ export default function ComponentsPage() {
 
         const stdAbbr = abbr(jan1); // e.g., PST / CST / GMT
         const dstAbbr = abbr(jul1); // e.g., PDT / CDT / GMT
-
-        // Positive hour count for the standard offset (PST -> 8)
         const stdOffsetHours = Math.abs(Math.round(jan1.getTimezoneOffset() / 60));
         return `${stdAbbr}+${stdOffsetHours}${dstAbbr}`;
     }, [sysTZ]);
@@ -188,7 +130,6 @@ export default function ComponentsPage() {
     const durationMinutes = useMemo(() => durHours * 60 + durMinutes, [durHours, durMinutes]);
     const durationSeconds = useMemo(() => durationMinutes * 60.0, [durationMinutes]);
 
-    // Derived datetimes in requested format
     const startDate = useMemo(() => new Date(`${dateLocal}T${timeLocal}:00`), [dateLocal, timeLocal]);
     const START_DATETIME_STR = useMemo(() => fmtYMD_HMS(startDate), [startDate]);
     const END_DATETIME_STR = useMemo(() => {
@@ -281,7 +222,6 @@ export default function ComponentsPage() {
     }
 
     function createDistributionNodeCard(child) {
-        // Find parent that contains this child
         const parentEntry = Object.entries(nodes).find(([, node]) =>
             node.children.some(c => c.id === child.id)
         );
@@ -321,28 +261,24 @@ export default function ComponentsPage() {
     }
 
     // ---------- Actions ----------
-    // One button: /api/build then /api/config (uses data.log, not raw)
     async function buildConfiguration() {
         try {
             setIsBuildingCfg(true);
             setError("");
-            setLog(""); // reset consolidated log
-            setShowLog(true); // show logs; node lists will hide
+            setLog("");
+            setShowLog(true);
             setCanRun(false);
 
-            // 1) Build (apptainer)
             const buildRes = await fetchJSON("/api/build", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({}),
             });
-            // Prefer body.data.log; fallback to raw if missing
             appendLog("BUILD (/api/build)", buildRes.data?.log ?? buildRes.raw);
             if (!buildRes.ok || !buildRes.data?.success) {
                 throw new Error(buildRes.data?.error || "Build failed (see log)");
             }
 
-            // 2) Generate configuration (deploy tree under build/deploy)
             const cfgRes = await fetchJSON("/api/config", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -369,12 +305,11 @@ export default function ComponentsPage() {
         }
     }
 
-    // Run: just /api/run (use data.log)
     async function runSim() {
         try {
             setError("");
             setIsRunning(true);
-            setShowLog(true); // show logs; node lists will hide
+            setShowLog(true);
 
             const runRes = await fetchJSON("/api/run", {
                 method: "POST",
@@ -395,11 +330,9 @@ export default function ComponentsPage() {
     // ---------- Render ----------
     return (
         <Page metadata={"Components"}>
-            {/* Full-height column so the log pane can fill */}
             <div className="flex flex-col h-full min-h-0 pt-4">
                 {/* Simulation Options */}
                 <div className="flex flex-row p-4 bg-black/5 rounded-sm gap-6 items-end flex-wrap">
-                    {/* Simulation name */}
                     <div className="flex flex-col gap-1">
                         <label className="font-semibold text-sm">Simulation Name</label>
                         <input
@@ -411,7 +344,6 @@ export default function ComponentsPage() {
                         />
                     </div>
 
-                    {/* Start date */}
                     <div className="flex flex-col gap-1">
                         <label className="font-semibold text-sm">Start date</label>
                         <input
@@ -422,7 +354,6 @@ export default function ComponentsPage() {
                         />
                     </div>
 
-                    {/* Start time + TZ indicator */}
                     <div className="flex flex-col gap-1">
                         <label className="font-semibold text-sm">Start time</label>
                         <div className="flex items-end gap-2">
@@ -433,16 +364,12 @@ export default function ComponentsPage() {
                                 value={timeLocal}
                                 onChange={(e) => setTimeLocal(e.target.value)}
                             />
-                            <span
-                                className="text-xs text-gray-500"
-                                title={sysTZ}
-                            >
+                            <span className="text-xs text-gray-500" title={sysTZ}>
                                 {TIMEZONE_LABEL}
                             </span>
                         </div>
                     </div>
 
-                    {/* Duration */}
                     <div className="flex flex-col gap-1">
                         <label className="font-semibold text-sm">Duration</label>
                         <div className="flex items-end gap-2">
@@ -486,12 +413,11 @@ export default function ComponentsPage() {
                 {/* Main content area fills remaining height */}
                 <div className="mt-4 flex-1 min-h-0">
                     {showLog ? (
-                        // LOG VIEW (fills height)
                         <div className="h-full flex flex-col">
                             <div className="flex justify-between items-center">
                                 <strong>Logs</strong>
-                                <span className={`text-xs ${wsConnected ? "text-green-600" : "text-gray-400"}`}>
-                                    {wsConnected ? "live" : "offline"}
+                                <span className={`text-xs ${pollLive ? "text-green-600" : "text-gray-400"}`}>
+                                    {pollLive ? "live" : "offline"}
                                 </span>
                             </div>
                             <div
@@ -504,7 +430,6 @@ export default function ComponentsPage() {
                             </div>
                         </div>
                     ) : (
-                        // NODE BUILDERS (only visible when logs are hidden)
                         <div className="flex flex-row gap-4 h-full w-full grow min-h-0">
                             <div className="flex flex-col gap-2 flex-1 w-full h-full overflow-hidden">
                                 <div className="flex justify-between items-center font-bold h-8">
@@ -560,7 +485,6 @@ export default function ComponentsPage() {
                     {isRunning ? "Running…" : "Run"}
                 </button>
 
-                {/* Manual toggle for logs vs node lists */}
                 <button
                     className="px-3 h-9 bg-transparent text-gray-700 border-2 border-gray-300 
                        rounded-sm font-bold cursor-pointer"
