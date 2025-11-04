@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Navbar from './components/Navbar';
 import Page from './components/pages/Page';
 import ComponentsPage from './components/pages/components/ComponentsPage';
+import SimulationPage from './components/pages/components/SimulationPage';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('Components');
@@ -14,7 +15,7 @@ export default function App() {
       page: <ComponentsPage />
     },
     'Simulation': {
-      page: <Page metadata={'Simulation'} />
+      page: <SimulationPage />
     },
     'Tools': {
       page: <Page metadata={'Tools'} />

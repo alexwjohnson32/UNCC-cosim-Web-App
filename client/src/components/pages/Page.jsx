@@ -2,7 +2,7 @@ import EnergyIcon from "../../assets/EnergyIcon.jsx";
 
 export default function Page({ metadata, children }) {
     return (
-        <div className="flex flex-col justify-center h-full w-full">
+        <div className="flex flex-col justify-center h-full w-full gap-4">
             <div className="flex flex-row justify-between items-center">
                 <span className="text-4xl font-semibold">{metadata}</span>
                 <div className="flex items-center gap-2">
