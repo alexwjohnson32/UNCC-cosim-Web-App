@@ -1,6 +1,7 @@
 import { Plug2, Plus, Trash2 } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
 import Page from "../Page";
+import { fetchJSON } from "../../../utils/RESTUtils";
 
 export default function SimulationPage() {
     // ----- Simulation model state -----
@@ -26,56 +27,45 @@ export default function SimulationPage() {
     const cursorRef = useRef(0);      // last seen log id
     const logBoxRef = useRef(null);   // for autoscroll
 
-    useEffect(() => {
-        let stopped = false;
+    // useEffect(() => {
+    //     let stopped = false;
 
-        const poll = async () => {
-            while (!stopped) {
-                try {
-                    const res = await fetch(`/api/logs?after=${cursorRef.current}`);
-                    if (res.ok) {
-                        const j = await res.json();
-                        if (j?.entries?.length) {
-                            const joined = j.entries.map(e => e.text).join("\n");
-                            setLog(prev => (prev ? prev + "\n" + joined : joined));
-                            cursorRef.current = j.lastId ?? cursorRef.current;
+    //     const poll = async () => {
+    //         while (!stopped) {
+    //             try {
+    //                 const res = await fetch(`/api/logs?after=${cursorRef.current}`);
+    //                 if (res.ok) {
+    //                     const j = await res.json();
+    //                     if (j?.entries?.length) {
+    //                         const joined = j.entries.map(e => e.text).join("\n");
+    //                         setLog(prev => (prev ? prev + "\n" + joined : joined));
+    //                         cursorRef.current = j.lastId ?? cursorRef.current;
 
-                            // auto-scroll
-                            if (logBoxRef.current) {
-                                const el = logBoxRef.current;
-                                el.scrollTop = el.scrollHeight;
-                            }
-                        }
-                        setPollLive(true);
-                    } else {
-                        setPollLive(false);
-                    }
-                } catch {
-                    setPollLive(false);
-                }
-                // poll interval
-                await new Promise(r => setTimeout(r, 1000));
-            }
-        };
+    //                         // auto-scroll
+    //                         if (logBoxRef.current) {
+    //                             const el = logBoxRef.current;
+    //                             el.scrollTop = el.scrollHeight;
+    //                         }
+    //                     }
+    //                     setPollLive(true);
+    //                 } else {
+    //                     setPollLive(false);
+    //                 }
+    //             } catch {
+    //                 setPollLive(false);
+    //             }
+    //             // poll interval
+    //             await new Promise(r => setTimeout(r, 1000));
+    //         }
+    //     };
 
-        poll();
-        return () => { stopped = true; };
-    }, []);
+    //     poll();
+    //     return () => { stopped = true; };
+    // }, []);
 
     // ---------- Helpers ----------
     function now() {
         return new Date().toLocaleString();
-    }
-
-    async function fetchJSON(url, options) {
-        const res = await fetch(url, options);
-        const text = await res.text();
-        try {
-            const data = JSON.parse(text);
-            return { ok: res.ok, status: res.status, data, raw: text };
-        } catch {
-            return { ok: false, status: res.status, data: null, raw: text };
-        }
     }
 
     function appendLog(sectionTitle, body) {
@@ -269,16 +259,14 @@ export default function SimulationPage() {
             setShowLog(true);
             setCanRun(false);
 
-            const buildRes = await fetchJSON("/api/simulation/build", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
-            });
+            // POST /api/simulation/build (no body needed)
+            const buildRes = await fetchJSON("/api/simulation/build", { method: "POST" });
             appendLog("BUILD (/api/simulation/build)", buildRes.data?.log ?? buildRes.raw);
             if (!buildRes.ok || !buildRes.data?.success) {
                 throw new Error(buildRes.data?.error || "Build failed (see log)");
             }
 
+            // POST /api/simulation/config (has JSON body)
             const cfgRes = await fetchJSON("/api/simulation/config", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -311,12 +299,17 @@ export default function SimulationPage() {
             setIsRunning(true);
             setShowLog(true);
 
-            const runRes = await fetchJSON("/api/simulation/run", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
-            });
-            appendLog("RUN (/api/simulation/run)", runRes.data?.log ?? runRes.raw);
+            // POST /api/simulation/run (no body needed; returns 202 Accepted)
+            const runRes = await fetchJSON("/api/simulation/run", { method: "POST" });
+
+            // /run doesn’t include a log; show the body (string or pretty JSON)
+            const runMsg =
+                typeof runRes.data === "string"
+                    ? runRes.data
+                    : JSON.stringify(runRes.data ?? {}, null, 2);
+
+            appendLog("RUN (/api/simulation/run)", runMsg);
+
             if (!runRes.ok || !runRes.data?.success) {
                 console.warn("Run exited non-OK; see log.");
             }

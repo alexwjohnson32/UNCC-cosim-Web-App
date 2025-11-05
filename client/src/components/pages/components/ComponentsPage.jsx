@@ -1,37 +1,25 @@
 import { Box, ChevronDown, ChevronRight, Copy, Edit, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { v4 as uuid } from "uuid";
 import Page from "../Page";
-
-const testComponents = {
-    "Urban Distribution Hub": {
-        name: "Urban Distribution Hub",
-        description: "IEEE 30-bus transmission with 2 distribution feeders",
-        rootNode: "IEEE 30-Bus",
-        distNodes: 2,
-        subComponents: [],
-        date: '2025-01-10'
-    },
-    'Rural Transmission Cluster': {
-        name: "Rural Transmission Cluster",
-        description: 'IEEE 14-bus with IEEE 37-bus distribution',
-        rootNode: 'IEEE 14-Bus',
-        distNodes: 1,
-        subComponents: [],
-        date: '2025-05-10'
-    },
-    'Regional Interconnected Network': {
-        name: "Regional Interconnected Network",
-        description: 'Large-scale network with integrated urban and industrial components',
-        rootNode: 'IEEE 57-Bus',
-        distNodes: 1,
-        subComponents: ["Urban Distribution Hub"],
-        date: '2025-06-10'
-    },
-}
+import { fetchJSON } from "../../../utils/RESTUtils";
 
 export default function ComponentsPage() {
+    const [components, setComponents] = useState({});
     const [expandedComponent, setExpandedComponent] = useState("");
+
+    useEffect(() => {
+        loadComponents();
+    }, []);
+
+    async function loadComponents() {
+        try {
+            const { components } = await fetchJSON("/api/components");
+            setComponents(components);
+        } catch (err) {
+            console.error("Error loading components:", err);
+        }
+    }
 
     function createComponentCard(component) {
         const { name, description, rootNode, distNodes, subComponents, date } = component;
@@ -89,7 +77,7 @@ export default function ComponentsPage() {
                         <div className="flex flex-col">
                             <span className="text-sm">Sub Components ({subComponents})</span>
                             <div className="grid grid-cols-2 gap-2">
-                                {subComponents.length > 0 && subComponents.map(sub => createComponentSection(testComponents[sub]))}
+                                {subComponents.length > 0 && subComponents.map(sub => createComponentSection(components[sub]))}
                             </div>
                         </div>
                     </div>
@@ -119,7 +107,7 @@ export default function ComponentsPage() {
                     <span className="text-xs text-gray-500">{sub.description}</span>
                     <span className="text-xs text-gray-500">Root: {sub.rootNode} -- Dist: {sub.distNodes} nodes</span>
                 </div>
-                <span className="bg-[#D93229]/5 border border-[#D93229]/25 px-2 py-1 text-[10px] rounded-sm">GridLab-D</span>
+                <span className="bg-[#D93229]/5 border border-[#D93229]/25 px-2 py-1 text-[10px] rounded-sm">Component</span>
             </div>
 
         )
@@ -144,15 +132,15 @@ export default function ComponentsPage() {
                 </div>
                 <div className="flex">
                     <div className="flex flex-col flex-1 gap-1 py-4 justify-center items-center">
-                        <span className="font-bold text-3xl text-blue-600">{Object.keys(testComponents).length}</span>
+                        <span className="font-bold text-3xl text-blue-600">{Object.keys(components).length}</span>
                         <span className="text-xs text-gray-500">Total Components</span>
                     </div>
                     <div className="flex flex-col flex-1 gap-1 py-4 justify-center items-center">
-                        <span className="font-bold text-3xl text-green-600">{Object.values(testComponents).reduce((sum, comp) => sum + comp.distNodes, 0)}</span>
+                        <span className="font-bold text-3xl text-green-600">{Object.values(components).reduce((sum, comp) => sum + comp.distNodes, 0)}</span>
                         <span className="text-xs text-gray-500">Distribution Nodes</span>
                     </div>
                     <div className="flex flex-col flex-1 gap-1 py-4 justify-center items-center">
-                        <span className="font-bold text-3xl text-orange-600">{Object.values(testComponents).reduce((sum, comp) => sum + comp.subComponents.length, 0)}</span>
+                        <span className="font-bold text-3xl text-orange-600">{Object.values(components).reduce((sum, comp) => sum + comp.subComponents.length, 0)}</span>
                         <span className="text-xs text-gray-500">Nested Components</span>
                     </div>
                 </div>
@@ -163,7 +151,7 @@ export default function ComponentsPage() {
                 <div className="flex flex-col shrink-0">
                     <div className="flex gap-1">
                         <span>Component Library</span>
-                        <span>({Object.keys(testComponents).length})</span>
+                        <span>({Object.keys(components).length})</span>
                     </div>
                     <span className="text-sm text-gray-500">
                         Click on a component to expand and view details
@@ -172,9 +160,7 @@ export default function ComponentsPage() {
 
                 {/* Scrollable area */}
                 <div className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
-                    {createComponentCard(testComponents["Urban Distribution Hub"])}
-                    {createComponentCard(testComponents["Rural Transmission Cluster"])}
-                    {createComponentCard(testComponents["Regional Interconnected Network"])}
+                    {Object.values(components).map(comp => createComponentCard(comp))}
                 </div>
             </div>
         </Page>
