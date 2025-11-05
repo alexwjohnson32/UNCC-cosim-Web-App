@@ -22,10 +22,10 @@ export default function ComponentsPage() {
     }
 
     function createComponentCard(component) {
-        const { name, description, rootNode, distNodes, subComponents, date } = component;
+        const { name, date, rootNode, distNodes, subComponents } = component;
 
         return (
-            <>
+            <div key={uuid()}>
                 <div
                     id={name}
                     className={`flex w-full p-3 justify-between items-center border border-black/10 rounded-t-lg ${expandedComponent !== name && "rounded-b-lg"} cursor-pointer`}
@@ -39,18 +39,29 @@ export default function ComponentsPage() {
                                 <span className="border border-black/20 px-2 py-[2px] text-[10px] rounded-sm">{date}</span>
                                 {subComponents.length > 0 && <span className="border bg-black/10 border-black/20 px-2 py-[2px] text-[10px] rounded-sm">Nested</span>}
                             </div>
-                            <span className="text-gray-500 text-xs">{description}</span>
-                            <span className="text-gray-500 text-xs">Root: {rootNode} - Dist: {distNodes} - Sub: {subComponents.length}</span>
+                            <span className="text-gray-500 text-xs">{rootNode.model} transmission system  with {distNodes.length > 1 ? `${distNodes.length} distribution feeders` : `a ${distNodes[0].model} Distribution system`}</span>
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer">
+                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
                             <Copy height={18} stroke="#6a7282" />
                         </button>
-                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer">
+                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
                             <Edit height={18} stroke="#6a7282" />
                         </button>
-                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer">
+                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
                             <Trash2 height={18} stroke="#6a7282" />
                         </button>
                     </div>
@@ -61,39 +72,40 @@ export default function ComponentsPage() {
                             <span className="text-sm">Root Node (Transmission)</span>
                             <div className="flex p-2 rounded-lg justify-between bg-corvid-primary/5 border border-black/10 items-center">
                                 <div className="flex flex-col">
-                                    <span className="text-xs">{rootNode}</span>
-                                    <span className="text-xs text-gray-500">X buses, Y generators</span>
+                                    <span className="text-xs">{rootNode.model}</span>
                                 </div>
-                                <span className="bg-corvid-primary/5 border border-corvid-primary/25 px-2 py-1 text-[10px] rounded-sm">GridPack</span>
+                                <span className="bg-corvid-primary/5 border border-corvid-primary/25 px-2 py-1 text-[10px] rounded-sm">{rootNode.system}</span>
                             </div>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-sm">Distribution Nodes ({distNodes})</span>
-                            <div className="grid grid-cols-3 gap-2">
-                                {Array.from({ length: distNodes }, (_, i) => i + 1).map(() => createDistSection())}
+                            <span className="text-sm">Distribution Nodes ({distNodes.length})</span>
+                            <div className="grid grid-cols-4 gap-2">
+                                {distNodes.map((node) => createDistSection(node))}
                             </div>
                         </div>
 
-                        <div className="flex flex-col">
-                            <span className="text-sm">Sub Components ({subComponents})</span>
-                            <div className="grid grid-cols-2 gap-2">
-                                {subComponents.length > 0 && subComponents.map(sub => createComponentSection(components[sub]))}
+                        {subComponents.length > 0 &&
+                            <div className="flex flex-col">
+                                <span className="text-sm">Sub Components ({subComponents})</span>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {subComponents.map(sub => createComponentSection(components[sub]))}
+                                </div>
                             </div>
-                        </div>
+                        }
                     </div>
                 }
-            </>
+            </div>
         );
     }
 
-    function createDistSection() {
+    function createDistSection(node) {
         return (
             <div key={uuid()} className="flex p-2 rounded-lg justify-between bg-[#12AE1F]/5 border border-black/10 items-center">
                 <div className="flex flex-col">
-                    <span className="text-xs">IEEE 8500-Bus Distribution</span>
-                    <span className="text-xs text-gray-500">X nodes, Y loads</span>
+                    <span className="text-xs">{node.model}</span>
+                    <span className="text-xs text-gray-500">Bus ID: {node.bus_id}</span>
                 </div>
-                <span className="bg-[#12AE1F]/5 border border-[#12AE1F]/25 px-2 py-1 text-[10px] rounded-sm">GridLab-D</span>
+                <span className="bg-[#12AE1F]/5 border border-[#12AE1F]/25 px-2 py-1 text-[10px] rounded-sm">{node.system}</span>
             </div>
 
         )
@@ -104,8 +116,7 @@ export default function ComponentsPage() {
             <div key={uuid()} className="flex p-2 rounded-lg justify-between bg-[#D93229]/5 border border-black/10 items-center">
                 <div className="flex flex-col">
                     <span className="text-xs">{sub.name}</span>
-                    <span className="text-xs text-gray-500">{sub.description}</span>
-                    <span className="text-xs text-gray-500">Root: {sub.rootNode} -- Dist: {sub.distNodes} nodes</span>
+                    <span className="text-xs text-gray-500">{sub.rootNode.model} transmission system  with {sub.distNodes.length > 1 ? `${sub.distNodes.length} distribution feeders` : `a ${sub.distNodes[0].model} Distribution system`}</span>
                 </div>
                 <span className="bg-[#D93229]/5 border border-[#D93229]/25 px-2 py-1 text-[10px] rounded-sm">Component</span>
             </div>
@@ -136,7 +147,7 @@ export default function ComponentsPage() {
                         <span className="text-xs text-gray-500">Total Components</span>
                     </div>
                     <div className="flex flex-col flex-1 gap-1 py-4 justify-center items-center">
-                        <span className="font-bold text-3xl text-green-600">{Object.values(components).reduce((sum, comp) => sum + comp.distNodes, 0)}</span>
+                        <span className="font-bold text-3xl text-green-600">{Object.values(components).reduce((sum, comp) => sum + comp.distNodes.length, 0)}</span>
                         <span className="text-xs text-gray-500">Distribution Nodes</span>
                     </div>
                     <div className="flex flex-col flex-1 gap-1 py-4 justify-center items-center">
