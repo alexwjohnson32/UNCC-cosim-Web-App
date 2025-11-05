@@ -1,6 +1,9 @@
+import { Router } from "express";
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+
+const router = Router();
 
 // ===== Paths & Apptainer config =====
 const PROJECT_ROOT = path.resolve(process.cwd());
@@ -15,31 +18,117 @@ const DISTRIBUTION_MODEL = 'IEEE_8500';
 const TRANSMISSION_MODEL = 'IEEE_118';
 const BASELINE_PATH = path.join(TEMPLATE_DIR, DISTRIBUTION_MODEL, BASELINE_FILENAME);
 
-// Apptainer image resolution (env or sensible defaults)
-function firstExisting(paths) {
-    for (const p of paths) {
-        if (p && fs.existsSync(p)) return p;
-    }
-    return null;
-}
-
-function normalizeNodesShape(nodes) {
-    // Ensures each child is { id, bus_id }, defaulting bus_id=1 if missing.
-    const out = {};
-    for (const [tId, tNode] of Object.entries(nodes ?? {})) {
-        const children = (tNode.children ?? []).map((c, i) =>
-            typeof c === "string" ? { id: c, bus_id: 1 } : { id: c.id, bus_id: c.bus_id ?? 1 }
-        );
-        out[tId] = { ...tNode, children };
-    }
-    return out;
-}
-
 const APP_IMAGE_DEFAULTS = [
     process.env.APP_IMAGE,
     path.resolve(PROJECT_ROOT, '..', '..', '..', 'uncc_dir', 'uncc_images', 'rl8_uncc_full_image.sif'),
     '/mnt/shelf1/compile/uncc_dir/uncc_images/rl8_uncc_full_image.sif'
 ];
+
+/* ============================
+ * POST /api/build
+ * Build your C++ (via rebuild.sh in the container).
+ * Returns: { success, exitCode, buildDir, log, apptainer }
+ * ============================ */
+router.post("/build", async (req, res) => {
+    try {
+        const imagePath = firstExisting(APP_IMAGE_DEFAULTS);
+        if (!imagePath) {
+            return res.status(500).json({ success: false, error: 'Apptainer image not found.', tried: APP_IMAGE_DEFAULTS });
+        }
+
+        const { code, log, args, hostAbs, containerPwd } = await runApptainerExec({
+            hostRoot: PROJECT_ROOT,
+            insideCmd: './rebuild.sh ${TEMPLATE_DIR}',
+            imagePath
+        });
+
+        const buildExists = fs.existsSync(BUILD_DIR);
+        return res.status(200).json({
+            success: buildExists,
+            exitCode: Number.isInteger(code) ? code : -1,
+            buildDir: BUILD_DIR,
+            log,
+            apptainer: { args, hostAbs, containerPwd, imagePath }
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: String(err) });
+    }
+});
+
+/* ============================
+ * POST /api/run
+ * Run your sim (via run.sh --existing in the container).
+ * Returns: { success, exitCode, log, apptainer }
+ * ============================ */
+router.post("/run", async (req, res) => {
+    try {
+        const imagePath = firstExisting(APP_IMAGE_DEFAULTS);
+        if (!imagePath) {
+            return res.status(500).json({ success: false, error: 'Apptainer image not found.', tried: APP_IMAGE_DEFAULTS });
+        }
+
+        const { pid, args, hostAbs, containerPwd } = await runApptainerExec({
+            hostRoot: PROJECT_ROOT,
+            insideCmd: './run.sh',
+            imagePath,
+            detached: true,
+            collectLogs: false,
+        });
+
+        return res.status(202).json({
+            success: true,
+            message: 'Apptainer job started.',
+            pid,
+            startedAt: new Date().toISOString(),
+            apptainer: { args, hostAbs, containerPwd, imagePath }
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: String(err) });
+    }
+});
+
+/* ============================
+ * POST /api/config
+ * NEW BEHAVIOR: create `build/deploy` and populate it
+ * with runnable_cosim.json + transmission/ + distribution/
+ * (This used to write under /output — now everything goes to build/deploy)
+ * Body: { simName, nodes }  (baseDir is ignored now)
+ * Returns: { success, deployDir, log }
+ * ============================ */
+router.post("/config", async (req, res) => {
+    const { simName, timezone, startTime, endTime, durationSec } = req.body || {};
+    let { nodes } = req.body || {};
+    if (!simName || !timezone || !startTime || !endTime || !durationSec || !nodes) {
+        return res.status(400).json({ success: false, error: 'simName, timezone, startTime, stopTime, durationSec, and nodes are required' });
+    }
+
+    // NEW: normalize to { id, bus_id } children
+    nodes = normalizeNodesShape(nodes);
+
+    // Simple text log we’ll return for the GUI to display
+    let log = '';
+
+    try {
+        // 1) Fresh deploy tree under build/
+        if (fs.existsSync(DEPLOY_DIR)) {
+            fs.rmSync(DEPLOY_DIR, { recursive: true, force: true });
+            log += `Removed existing ${DEPLOY_DIR}\n`;
+        }
+        fs.mkdirSync(DEPLOY_DIR, { recursive: true });
+        log += `Created ${DEPLOY_DIR}\n`;
+
+        // 2) Populate like the old /output: runnable_cosim.json, transmission/, distribution/
+        createTransmissionInputs(DEPLOY_DIR, nodes, (line) => (log += line + '\n'));
+        createDistributionInputs(DEPLOY_DIR, nodes, timezone, startTime, endTime, (line) => (log += line + '\n'));
+        createCosimRunner(DEPLOY_DIR, simName, nodes, durationSec, (line) => (log += line + '\n'));
+
+        const ok = fs.existsSync(path.join(DEPLOY_DIR, 'runnable_cosim.json'));
+        return res.status(200).json({ success: ok, deployDir: DEPLOY_DIR, log });
+    } catch (err) {
+        log += `ERROR: ${String(err)}\n`;
+        return res.status(500).json({ success: false, deployDir: DEPLOY_DIR, log, error: String(err) });
+    }
+});
 
 // Run apptainer with identity bind so host paths match in container
 function runApptainerExec({ hostRoot, insideCmd, imagePath, detached = false, collectLogs = true }) {
@@ -80,113 +169,26 @@ function runApptainerExec({ hostRoot, insideCmd, imagePath, detached = false, co
     });
 }
 
-
-/* ============================
- * POST /api/build
- * Build your C++ (via rebuild.sh in the container).
- * Returns: { success, exitCode, buildDir, log, apptainer }
- * ============================ */
-export const buildInApptainer = async (req, res) => {
-    try {
-        const imagePath = firstExisting(APP_IMAGE_DEFAULTS);
-        if (!imagePath) {
-            return res.status(500).json({ success: false, error: 'Apptainer image not found.', tried: APP_IMAGE_DEFAULTS });
-        }
-
-        const { code, log, args, hostAbs, containerPwd } = await runApptainerExec({
-            hostRoot: PROJECT_ROOT,
-            insideCmd: './rebuild.sh ${TEMPLATE_DIR}',
-            imagePath
-        });
-
-        const buildExists = fs.existsSync(BUILD_DIR);
-        return res.status(200).json({
-            success: buildExists,
-            exitCode: Number.isInteger(code) ? code : -1,
-            buildDir: BUILD_DIR,
-            log,
-            apptainer: { args, hostAbs, containerPwd, imagePath }
-        });
-    } catch (err) {
-        return res.status(500).json({ success: false, error: String(err) });
+// Apptainer image resolution (env or sensible defaults)
+function firstExisting(paths) {
+    for (const p of paths) {
+        if (p && fs.existsSync(p)) return p;
     }
-};
+    return null;
+}
 
-/* ============================
- * POST /api/run
- * Run your sim (via run.sh --existing in the container).
- * Returns: { success, exitCode, log, apptainer }
- * ============================ */
-export const runInApptainer = async (req, res) => {
-    try {
-        const imagePath = firstExisting(APP_IMAGE_DEFAULTS);
-        if (!imagePath) {
-            return res.status(500).json({ success: false, error: 'Apptainer image not found.', tried: APP_IMAGE_DEFAULTS });
-        }
-
-        const { pid, args, hostAbs, containerPwd } = await runApptainerExec({
-            hostRoot: PROJECT_ROOT,
-            insideCmd: './run.sh',
-            imagePath,
-            detached: true,
-            collectLogs: false,
-        });
-
-        return res.status(202).json({
-            success: true,
-            message: 'Apptainer job started.',
-            pid,
-            startedAt: new Date().toISOString(),
-            apptainer: { args, hostAbs, containerPwd, imagePath }
-        });
-    } catch (err) {
-        return res.status(500).json({ success: false, error: String(err) });
+function normalizeNodesShape(nodes) {
+    // Ensures each child is { id, bus_id }, defaulting bus_id=1 if missing.
+    const out = {};
+    for (const [tId, tNode] of Object.entries(nodes ?? {})) {
+        const children = (tNode.children ?? []).map((c, i) =>
+            typeof c === "string" ? { id: c, bus_id: 1 } : { id: c.id, bus_id: c.bus_id ?? 1 }
+        );
+        out[tId] = { ...tNode, children };
     }
-};
+    return out;
+}
 
-
-/* ============================
- * POST /api/config
- * NEW BEHAVIOR: create `build/deploy` and populate it
- * with runnable_cosim.json + transmission/ + distribution/
- * (This used to write under /output — now everything goes to build/deploy)
- * Body: { simName, nodes }  (baseDir is ignored now)
- * Returns: { success, deployDir, log }
- * ============================ */
-export const generateConfiguration = async (req, res) => {
-    const { simName, timezone, startTime, endTime, durationSec } = req.body || {};
-    let { nodes } = req.body || {};
-    if (!simName || !timezone || !startTime || !endTime || !durationSec || !nodes) {
-        return res.status(400).json({ success: false, error: 'simName, timezone, startTime, stopTime, durationSec, and nodes are required' });
-    }
-
-    // NEW: normalize to { id, bus_id } children
-    nodes = normalizeNodesShape(nodes);
-
-    // Simple text log we’ll return for the GUI to display
-    let log = '';
-
-    try {
-        // 1) Fresh deploy tree under build/
-        if (fs.existsSync(DEPLOY_DIR)) {
-            fs.rmSync(DEPLOY_DIR, { recursive: true, force: true });
-            log += `Removed existing ${DEPLOY_DIR}\n`;
-        }
-        fs.mkdirSync(DEPLOY_DIR, { recursive: true });
-        log += `Created ${DEPLOY_DIR}\n`;
-
-        // 2) Populate like the old /output: runnable_cosim.json, transmission/, distribution/
-        createTransmissionInputs(DEPLOY_DIR, nodes, (line) => (log += line + '\n'));
-        createDistributionInputs(DEPLOY_DIR, nodes, timezone, startTime, endTime, (line) => (log += line + '\n'));
-        createCosimRunner(DEPLOY_DIR, simName, nodes, durationSec, (line) => (log += line + '\n'));
-
-        const ok = fs.existsSync(path.join(DEPLOY_DIR, 'runnable_cosim.json'));
-        return res.status(200).json({ success: ok, deployDir: DEPLOY_DIR, log });
-    } catch (err) {
-        log += `ERROR: ${String(err)}\n`;
-        return res.status(500).json({ success: false, deployDir: DEPLOY_DIR, log, error: String(err) });
-    }
-};
 
 /* ========== Helpers that create the deploy tree ========== */
 
@@ -346,3 +348,5 @@ function createCosimRunner(deployRoot, name, nodes, durationSec, onLog = () => {
     fs.writeFileSync(outputPath, JSON.stringify(template, null, 2), "utf8");
     onLog(`✔ Created runnable_cosim.json at ${outputPath}`);
 }
+
+export default router;

@@ -1,5 +1,6 @@
 import { Box, ChevronDown, ChevronRight, Copy, Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { v4 as uuid } from "uuid";
 import Page from "../Page";
 
 const testComponents = {
@@ -99,7 +100,7 @@ export default function ComponentsPage() {
 
     function createDistSection() {
         return (
-            <div className="flex p-2 rounded-lg justify-between bg-[#12AE1F]/5 border border-black/10 items-center">
+            <div key={uuid()} className="flex p-2 rounded-lg justify-between bg-[#12AE1F]/5 border border-black/10 items-center">
                 <div className="flex flex-col">
                     <span className="text-xs">IEEE 8500-Bus Distribution</span>
                     <span className="text-xs text-gray-500">X nodes, Y loads</span>
@@ -112,7 +113,7 @@ export default function ComponentsPage() {
 
     function createComponentSection(sub) {
         return (
-            <div className="flex p-2 rounded-lg justify-between bg-[#D93229]/5 border border-black/10 items-center">
+            <div key={uuid()} className="flex p-2 rounded-lg justify-between bg-[#D93229]/5 border border-black/10 items-center">
                 <div className="flex flex-col">
                     <span className="text-xs">{sub.name}</span>
                     <span className="text-xs text-gray-500">{sub.description}</span>
@@ -162,7 +163,7 @@ export default function ComponentsPage() {
                 <div className="flex flex-col shrink-0">
                     <div className="flex gap-1">
                         <span>Component Library</span>
-                        <span>(2)</span>
+                        <span>({Object.keys(testComponents).length})</span>
                     </div>
                     <span className="text-sm text-gray-500">
                         Click on a component to expand and view details

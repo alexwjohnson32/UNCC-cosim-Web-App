@@ -269,17 +269,17 @@ export default function SimulationPage() {
             setShowLog(true);
             setCanRun(false);
 
-            const buildRes = await fetchJSON("/api/build", {
+            const buildRes = await fetchJSON("/api/simulation/build", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({}),
             });
-            appendLog("BUILD (/api/build)", buildRes.data?.log ?? buildRes.raw);
+            appendLog("BUILD (/api/simulation/build)", buildRes.data?.log ?? buildRes.raw);
             if (!buildRes.ok || !buildRes.data?.success) {
                 throw new Error(buildRes.data?.error || "Build failed (see log)");
             }
 
-            const cfgRes = await fetchJSON("/api/config", {
+            const cfgRes = await fetchJSON("/api/simulation/config", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -291,7 +291,7 @@ export default function SimulationPage() {
                     nodes,
                 }),
             });
-            appendLog("CONFIG (/api/config)", cfgRes.data?.log ?? cfgRes.raw);
+            appendLog("CONFIG (/api/simulation/config)", cfgRes.data?.log ?? cfgRes.raw);
             if (!cfgRes.ok || !cfgRes.data?.success) {
                 throw new Error(cfgRes.data?.error || "Generate configuration failed (see log)");
             }
@@ -311,12 +311,12 @@ export default function SimulationPage() {
             setIsRunning(true);
             setShowLog(true);
 
-            const runRes = await fetchJSON("/api/run", {
+            const runRes = await fetchJSON("/api/simulation/run", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({}),
             });
-            appendLog("RUN (/api/run)", runRes.data?.log ?? runRes.raw);
+            appendLog("RUN (/api/simulation/run)", runRes.data?.log ?? runRes.raw);
             if (!runRes.ok || !runRes.data?.success) {
                 console.warn("Run exited non-OK; see log.");
             }
