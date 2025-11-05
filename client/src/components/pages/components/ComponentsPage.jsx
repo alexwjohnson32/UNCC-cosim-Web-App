@@ -4,6 +4,10 @@ import { v4 as uuid } from "uuid";
 import Page from "../Page";
 import { fetchJSON } from "../../../utils/RESTUtils";
 
+/**
+ * This page is for Component management. Components are resuable configurations
+ * of distribution systems, transmission systems, and other components.
+ */
 export default function ComponentsPage() {
     const [components, setComponents] = useState({});
     const [expandedComponent, setExpandedComponent] = useState("");
@@ -12,6 +16,10 @@ export default function ComponentsPage() {
         loadComponents();
     }, []);
 
+    /**
+     * Initial load of components from JSON file
+     * TODO: This should be converted to a DB in the future
+     */
     async function loadComponents() {
         try {
             const { components } = await fetchJSON("/api/components");
@@ -21,6 +29,11 @@ export default function ComponentsPage() {
         }
     }
 
+    /**
+     * This creates a Component card that will list the Transmission systems, Distribution systems,
+     * and sub components.
+     * @param {*} component - this is a component object with all relevant fields
+     */
     function createComponentCard(component) {
         const { name, date, rootNode, distNodes, subComponents } = component;
 
@@ -98,6 +111,10 @@ export default function ComponentsPage() {
         );
     }
 
+    /**
+     * This creates a Distribution System section on the Component card
+     * @param {*} node - a distribution node
+     */
     function createDistSection(node) {
         return (
             <div key={uuid()} className="flex p-2 rounded-lg justify-between bg-[#12AE1F]/5 border border-black/10 items-center">
@@ -111,6 +128,10 @@ export default function ComponentsPage() {
         )
     }
 
+    /**
+     * This creates a Component section on the Component cards
+     * @param {*} sub - a component object
+     */
     function createComponentSection(sub) {
         return (
             <div key={uuid()} className="flex p-2 rounded-lg justify-between bg-[#D93229]/5 border border-black/10 items-center">
