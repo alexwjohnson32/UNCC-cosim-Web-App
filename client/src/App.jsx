@@ -4,6 +4,7 @@ import Page from './components/pages/Page';
 import ComponentsPage from './components/pages/components/ComponentsPage';
 import SimulationPage from './components/pages/components/SimulationPage';
 import DashboardPage from './components/pages/components/DashboardPage';
+import SimulationPage2 from './components/pages/components/SimulationPage2';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('Dashboard');
@@ -17,6 +18,9 @@ export default function App() {
     },
     'Simulation': {
       page: <SimulationPage />
+    },
+    'Simulation2': {
+      page: <SimulationPage2 />
     },
     'Tools': {
       page: <Page metadata={'Tools'} />
