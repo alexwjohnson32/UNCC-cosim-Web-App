@@ -4,14 +4,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link href="/src/index.css" rel="stylesheet">
+  <link href="./generated.css" rel="stylesheet">
   <title>Co-Sim</title>
-  <link rel="icon" href="./src/assets/energy.svg" type="image/svg+xml" />
 </head>
 
 <body>
   <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
+  <script type="module" src="./src/main.jsx"></script>
+  <script>
+    (function () {
+      let last = null;
+      async function tick() {
+        try {
+          const r = await fetch("/__build-id", { cache: "no-store" });
+          const id = (await r.text()).trim();
+          if (last === null) last = id;
+          else if (id && id !== last) location.reload();
+        } catch { }
+        setTimeout(tick, 1000);
+      }
+      tick();
+    })();
+  </script>
 </body>
 
 </html>

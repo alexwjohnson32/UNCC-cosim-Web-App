@@ -1,12 +1,13 @@
-import { Router } from "express";
-import simulationRoutes from './simulation.routes.js';
-import componentRoutes from './components.routes.js';
-import logsRoutes from './logs.routes.js';
+import { handleSimulation } from "./simulation.routes.js";
+import { handleComponents } from "./components.routes.js";
+import { handleLogs } from "./logs.routes.js";
 
-const router = Router();
+export async function handleApi(req, url) {
+    const p = url.pathname;
 
-router.use('/simulation', simulationRoutes);
-router.use('/components', componentRoutes);
-router.use('/logs', logsRoutes);
+    if (p.startsWith("/api/simulation")) return handleSimulation(req, url);
+    if (p.startsWith("/api/components")) return handleComponents(req, url);
+    if (p.startsWith("/api/logs")) return handleLogs(req, url);
 
-export default router;
+    return Response.json({ error: "Not found" }, { status: 404 });
+}

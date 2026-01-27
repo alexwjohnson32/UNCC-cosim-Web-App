@@ -1,15 +1,23 @@
-import { Router } from "express";
-import fs from "fs/promises";
+// server/routes/components.routes.js
+import fs from "node:fs/promises";
 
-const router = Router();
-
-// Resolve __dirname since ESM doesn't provide it
+// Load once at module init (same as your current top-level await)
 const components = JSON.parse(
     await fs.readFile(new URL("../db.json", import.meta.url), "utf-8")
 ).components;
 
-router.get("/", (req, res) => {
-    res.json({ success: true, components });
-});
+function json(data, init = {}) {
+    return Response.json(data, init);
+}
 
-export default router;
+export async function handleComponents(req, url) {
+    const base = "/api/components";
+    const subPath = url.pathname.slice(base.length) || "/";
+
+    // GET /api/components
+    if (req.method === "GET" && (subPath === "/" || subPath === "")) {
+        return json({ success: true, components });
+    }
+
+    return json({ error: "Not found" }, { status: 404 });
+}

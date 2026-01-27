@@ -1,37 +1,74 @@
-// server.js
-import cors from 'cors';
-import express from "express";
-import path from "path";
-import http from "http";
-import { fileURLToPath } from "url";
-import routes from './routes/index.js';
+import path from "node:path";
+import { moduleDir } from "./utils/moduleDir.js";
+import { handleApi } from "./routes/index.js";
 
-const app = express();
-const port = process.env.PORT || 3000;
+const __dirname = moduleDir(import.meta.url, import.meta.dir);
+const port = Number(Bun.env.PORT ?? 3000);
+const isProd = Bun.env.NODE_ENV === "production";
 
-app.use(cors());
-app.use(express.json());
+// IMPORTANT: serve from dist/client in BOTH dev and prod.
+// Your dev loop will rebuild into dist/client, avoiding watch limits.
+const clientRoot = path.resolve(process.cwd(), "dist", "client");
+const indexPath = path.join(clientRoot, "index.html");
+const buildIdPath = path.join(clientRoot, ".build-id");
 
-// prefix all routes with /api
-app.use("/api", routes);
+function safeJoin(root, urlPathname) {
+  const rel = urlPathname.replace(/^\/+/, "");
+  const abs = path.resolve(root, rel);
+  if (!abs.startsWith(path.resolve(root))) return null;
+  return abs;
+}
 
-// ======================= Serve Frontend in Production ======================= //
-if (process.env.NODE_ENV === 'production') {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-
-  const distPath = path.join(__dirname, '..', 'client', 'dist');
-  app.use(express.static(distPath));
-  app.get('/', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+function textResponse(text, status = 200) {
+  return new Response(text, {
+    status,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+    },
   });
 }
 
-// ======================= Start HTTP Server ======================= //
-const server = http.createServer(app);
-server.listen(port, () => {
-  console.log(`HTTP listening on http://localhost:${port}`);
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('Running in development mode');
-  }
+Bun.serve({
+  port,
+  async fetch(req) {
+    const url = new URL(req.url);
+
+    // --- Build id for client auto-reload (polled by browser) ---
+    if (url.pathname === "/__build-id") {
+      const f = Bun.file(buildIdPath);
+      if (await f.exists()) return textResponse((await f.text()).trim() || "0");
+      return textResponse("0");
+    }
+
+    // --- API ---
+    if (url.pathname.startsWith("/api")) {
+      if (req.method === "OPTIONS") return new Response(null, { status: 204 });
+      return handleApi(req, url);
+    }
+
+    // --- Static files ---
+    const filePath = safeJoin(clientRoot, url.pathname);
+    if (filePath) {
+      const file = Bun.file(filePath);
+      if (await file.exists()) return new Response(file);
+    }
+
+    // --- SPA fallback ---
+    const indexFile = Bun.file(indexPath);
+    if (await indexFile.exists()) {
+      return new Response(indexFile, {
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
+
+    // Helpful error if build hasn't been run yet
+    return new Response(
+      `Frontend not built. Run: bun run dev (or bun run build)\nExpected: ${indexPath}\n`,
+      { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } }
+    );
+  },
 });
+
+console.log(`✅ Bun listening on http://localhost:${port} (${isProd ? "prod" : "dev"})`);
+console.log(`   Serving client from: ${clientRoot}`);

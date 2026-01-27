@@ -1,0 +1,6 @@
+.git/**
+**/.git/**
+**/objects/**
+server/uncc-corvid/**
+dist/**
+node_modules/**

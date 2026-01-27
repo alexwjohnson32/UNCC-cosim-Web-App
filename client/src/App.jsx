@@ -13,14 +13,14 @@ export default function App() {
     'Dashboard': {
       page: <DashboardPage />
     },
-    'Components': {
-      page: <ComponentsPage />
-    },
     'Simulation': {
       page: <SimulationPage />
     },
     'Simulation2': {
       page: <SimulationPage2 />
+    },
+    'Components': {
+      page: <ComponentsPage />
     },
     'Tools': {
       page: <Page metadata={'Tools'} />
