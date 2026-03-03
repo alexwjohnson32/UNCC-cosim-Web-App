@@ -14,6 +14,7 @@ export default defineConfig({
     tailwindcss()
   ],
   server: {
+    port: 5180,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -21,7 +22,16 @@ export default defineConfig({
         secure: false
       }
     },
-    port: 5180
+    watch: {
+      usePolling: true,
+      interval: 300,
+      ignored: [
+        /(^|\/)\.git\//,
+        /(^|\/)node_modules\//,
+        /(^|\/)dist\//,
+        /(^|\/)build\//,
+      ],
+    },
   },
 });
 
