@@ -1,11 +1,18 @@
-import { Box, ChevronDown, ChevronRight, Copy, Edit, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { v4 as uuid } from "uuid";
+import {
+    Box,
+    ChevronDown,
+    ChevronRight,
+    Copy,
+    Edit,
+    Plus,
+    Trash2,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import Page from "../Page";
 import { fetchJSON } from "../../../utils/RESTUtils";
 
 /**
- * This page is for Component management. Components are resuable configurations
+ * This page is for Component management. Components are reusable configurations
  * of distribution systems, transmission systems, and other components.
  */
 export default function ComponentsPage() {
@@ -16,10 +23,6 @@ export default function ComponentsPage() {
         loadComponents();
     }, []);
 
-    /**
-     * Initial load of components from JSON file
-     * TODO: This should be converted to a DB in the future
-     */
     async function loadComponents() {
         try {
             const { components } = await fetchJSON("/api/components");
@@ -29,172 +32,281 @@ export default function ComponentsPage() {
         }
     }
 
-    /**
-     * This creates a Component card that will list the Transmission systems, Distribution systems,
-     * and sub components.
-     * @param {*} component - this is a component object with all relevant fields
-     */
+    const componentList = useMemo(() => Object.values(components), [components]);
+
+    const totalComponents = componentList.length;
+    const totalDistributionNodes = componentList.reduce(
+        (sum, comp) => sum + comp.distNodes.length,
+        0
+    );
+    const totalNestedComponents = componentList.reduce(
+        (sum, comp) => sum + comp.subComponents.length,
+        0
+    );
+
+    const sectionHeader = (label) => (
+        <div className="flex items-center gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500 whitespace-nowrap">
+                {label}
+            </span>
+            <div className="h-px flex-1 bg-black/10" />
+        </div>
+    );
+
+    const cardClass = "rounded-md border border-black/10 bg-white";
+    const labelClass = "text-[11px] font-medium text-gray-600";
+    const iconButtonClass =
+        "flex h-8 w-8 items-center justify-center rounded-sm border border-black/10 bg-white text-gray-500 transition hover:bg-black/5 cursor-pointer";
+    const badgeClass =
+        "rounded-sm border border-black/15 px-2 py-[2px] text-[10px] font-medium text-gray-600";
+    const nestedBadgeClass =
+        "rounded-sm border border-black/15 bg-black/5 px-2 py-[2px] text-[10px] font-medium text-gray-700";
+
     function createComponentCard(component) {
         const { name, date, rootNode, distNodes, subComponents } = component;
+        const isExpanded = expandedComponent === name;
 
         return (
-            <div key={uuid()}>
+            <div key={name} className="flex flex-col">
                 <div
                     id={name}
-                    className={`flex w-full p-3 justify-between items-center border border-black/10 rounded-t-lg ${expandedComponent !== name && "rounded-b-lg"} cursor-pointer`}
-                    onClick={() => setExpandedComponent(expandedComponent === name ? "" : name)}
+                    className={`flex w-full items-center justify-between rounded-t-md border border-black/10 bg-white px-3 py-3 cursor-pointer ${!isExpanded ? "rounded-b-md" : ""
+                        }`}
+                    onClick={() =>
+                        setExpandedComponent(isExpanded ? "" : name)
+                    }
                 >
-                    <div className="flex gap-2 items-center">
-                        {expandedComponent === name ? <ChevronDown stroke="#6a7282" /> : <ChevronRight stroke="#6a7282" />}
-                        <div className="flex flex-col">
-                            <div className="flex gap-2 items-center">
-                                <span>{name}</span>
-                                <span className="border border-black/20 px-2 py-[2px] text-[10px] rounded-sm">{date}</span>
-                                {subComponents.length > 0 && <span className="border bg-black/10 border-black/20 px-2 py-[2px] text-[10px] rounded-sm">Nested</span>}
+                    <div className="flex items-center gap-2 min-w-0">
+                        {isExpanded ? (
+                            <ChevronDown size={17} className="text-gray-500 shrink-0" />
+                        ) : (
+                            <ChevronRight size={17} className="text-gray-500 shrink-0" />
+                        )}
+
+                        <div className="flex min-w-0 flex-col">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium text-gray-900">
+                                    {name}
+                                </span>
+                                <span className={badgeClass}>{date}</span>
+                                {subComponents.length > 0 && (
+                                    <span className={nestedBadgeClass}>Nested</span>
+                                )}
                             </div>
-                            <span className="text-gray-500 text-xs">{rootNode.model} transmission system  with {distNodes.length > 1 ? `${distNodes.length} distribution feeders` : `a ${distNodes[0].model} Distribution system`}</span>
+
+                            <span className="text-xs text-gray-500 truncate">
+                                {rootNode.model} transmission system with{" "}
+                                {distNodes.length > 1
+                                    ? `${distNodes.length} distribution feeders`
+                                    : `a ${distNodes[0].model} distribution system`}
+                            </span>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer"
+
+                    <div className="flex gap-2 shrink-0">
+                        <button
+                            className={iconButtonClass}
                             onClick={(e) => {
                                 e.stopPropagation();
                             }}
                         >
-                            <Copy height={18} stroke="#6a7282" />
+                            <Copy size={16} />
                         </button>
-                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer"
+                        <button
+                            className={iconButtonClass}
                             onClick={(e) => {
                                 e.stopPropagation();
                             }}
                         >
-                            <Edit height={18} stroke="#6a7282" />
+                            <Edit size={16} />
                         </button>
-                        <button className="flex items-center justify-center border border-black/10 hover:bg-black/5 rounded-lg w-10 h-10 cursor-pointer"
+                        <button
+                            className={iconButtonClass}
                             onClick={(e) => {
                                 e.stopPropagation();
                             }}
                         >
-                            <Trash2 height={18} stroke="#6a7282" />
+                            <Trash2 size={16} />
                         </button>
                     </div>
                 </div>
-                {expandedComponent === name &&
-                    <div className="flex flex-col p-3 gap-2 border border-x-black/10 border-b-black/10 border-t-transparent rounded-b-lg">
-                        <div className="flex flex-col">
-                            <span className="text-sm">Root Node (Transmission)</span>
-                            <div className="flex p-2 rounded-lg justify-between bg-corvid-primary/5 border border-black/10 items-center">
-                                <div className="flex flex-col">
-                                    <span className="text-xs">{rootNode.model}</span>
+
+                {isExpanded && (
+                    <div className="flex flex-col gap-4 rounded-b-md border border-t-0 border-black/10 bg-white px-3 py-4">
+                        {sectionHeader("Root Node (Transmission)")}
+
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                            <div className="xl:col-span-4 flex flex-col gap-1">
+                                <div className="flex items-center justify-between rounded-sm border border-black/10 bg-corvid-primary/5 px-3 py-2">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-medium text-gray-900">
+                                            {rootNode.model}
+                                        </span>
+                                    </div>
+                                    <span className="rounded-sm border border-corvid-primary/25 bg-corvid-primary/5 px-2 py-1 text-[10px] font-medium text-gray-700">
+                                        {rootNode.system}
+                                    </span>
                                 </div>
-                                <span className="bg-corvid-primary/5 border border-corvid-primary/25 px-2 py-1 text-[10px] rounded-sm">{rootNode.system}</span>
-                            </div>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-sm">Distribution Nodes ({distNodes.length})</span>
-                            <div className="grid grid-cols-4 gap-2">
-                                {distNodes.map((node) => createDistSection(node))}
                             </div>
                         </div>
 
-                        {subComponents.length > 0 &&
-                            <div className="flex flex-col">
-                                <span className="text-sm">Sub Components ({subComponents})</span>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {subComponents.map(sub => createComponentSection(components[sub]))}
-                                </div>
+                        {sectionHeader(`Distribution Nodes (${distNodes.length})`)}
+
+                        <div className="flex flex-col gap-1">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+                                {distNodes.map((node, index) =>
+                                    createDistSection(node, `${name}-dist-${index}`)
+                                )}
                             </div>
-                        }
+                        </div>
+
+                        {subComponents.length > 0 && (
+                            <>
+                                {sectionHeader(`Sub Components (${subComponents.length})`)}
+
+                                <div className="flex flex-col gap-1">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {subComponents.map((sub, index) =>
+                                            createComponentSection(
+                                                components[sub],
+                                                `${name}-sub-${index}`
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
-                }
+                )}
             </div>
         );
     }
 
-    /**
-     * This creates a Distribution System section on the Component card
-     * @param {*} node - a distribution node
-     */
-    function createDistSection(node) {
+    function createDistSection(node, key) {
         return (
-            <div key={uuid()} className="flex p-2 rounded-lg justify-between bg-[#12AE1F]/5 border border-black/10 items-center">
-                <div className="flex flex-col">
-                    <span className="text-xs">{node.model}</span>
-                    <span className="text-xs text-gray-500">Bus ID: {node.bus_id}</span>
+            <div
+                key={key}
+                className="flex items-center justify-between rounded-sm border border-black/10 bg-[#12AE1F]/5 px-3 py-2"
+            >
+                <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-medium text-gray-900">
+                        {node.model}
+                    </span>
+                    <span className="text-[11px] text-gray-500">
+                        Bus ID: {node.bus_id}
+                    </span>
                 </div>
-                <span className="bg-[#12AE1F]/5 border border-[#12AE1F]/25 px-2 py-1 text-[10px] rounded-sm">{node.system}</span>
-            </div>
 
-        )
+                <span className="rounded-sm border border-[#12AE1F]/25 bg-[#12AE1F]/5 px-2 py-1 text-[10px] font-medium text-gray-700 shrink-0">
+                    {node.system}
+                </span>
+            </div>
+        );
     }
 
-    /**
-     * This creates a Component section on the Component cards
-     * @param {*} sub - a component object
-     */
-    function createComponentSection(sub) {
-        return (
-            <div key={uuid()} className="flex p-2 rounded-lg justify-between bg-[#D93229]/5 border border-black/10 items-center">
-                <div className="flex flex-col">
-                    <span className="text-xs">{sub.name}</span>
-                    <span className="text-xs text-gray-500">{sub.rootNode.model} transmission system  with {sub.distNodes.length > 1 ? `${sub.distNodes.length} distribution feeders` : `a ${sub.distNodes[0].model} Distribution system`}</span>
-                </div>
-                <span className="bg-[#D93229]/5 border border-[#D93229]/25 px-2 py-1 text-[10px] rounded-sm">Component</span>
-            </div>
+    function createComponentSection(sub, key) {
+        if (!sub) return null;
 
-        )
+        return (
+            <div
+                key={key}
+                className="flex items-center justify-between rounded-sm border border-black/10 bg-[#D93229]/5 px-3 py-2"
+            >
+                <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-medium text-gray-900">
+                        {sub.name}
+                    </span>
+                    <span className="text-[11px] text-gray-500">
+                        {sub.rootNode.model} transmission system with{" "}
+                        {sub.distNodes.length > 1
+                            ? `${sub.distNodes.length} distribution feeders`
+                            : `a ${sub.distNodes[0].model} distribution system`}
+                    </span>
+                </div>
+
+                <span className="rounded-sm border border-[#D93229]/25 bg-[#D93229]/5 px-2 py-1 text-[10px] font-medium text-gray-700 shrink-0">
+                    Component
+                </span>
+            </div>
+        );
     }
 
     return (
         <Page metadata={"Component Builder"}>
-            {/* METADATA */}
-            <div className="flex flex-col border border-black/10 rounded-md p-4">
-                <div className="flex justify-between items-center w-full">
-                    <div className="flex flex-col">
-                        <div className="flex gap-1 items-center">
-                            <Box height={18} className="stroke-gray-500" />
-                            <span>Component Library</span>
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
+                {/* Header / Metadata */}
+                <div className={`px-4 py-3`}>
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5">
+                                <Box size={16} className="stroke-gray-500" />
+                                <span className="text-base font-semibold text-gray-900">
+                                    Component Library
+                                </span>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                                Create reusable grid components with transmission root
+                                nodes and distribution branches
+                            </span>
                         </div>
-                        <span className="text-sm text-gray-500">Create reusable grid components with transmission root nodes and distribution branches</span>
-                    </div>
-                    <button className="flex items-center bg-corvid-primary active:brightness-95 text-white text-sm stroke-white px-2 py-1 rounded-sm h-min font-bold cursor-pointer">
-                        <Plus strokeWidth={3} height={18} />
-                        New Component
-                    </button>
-                </div>
-                <div className="flex">
-                    <div className="flex flex-col flex-1 gap-1 py-4 justify-center items-center">
-                        <span className="font-bold text-3xl text-blue-600">{Object.keys(components).length}</span>
-                        <span className="text-xs text-gray-500">Total Components</span>
-                    </div>
-                    <div className="flex flex-col flex-1 gap-1 py-4 justify-center items-center">
-                        <span className="font-bold text-3xl text-green-600">{Object.values(components).reduce((sum, comp) => sum + comp.distNodes.length, 0)}</span>
-                        <span className="text-xs text-gray-500">Distribution Nodes</span>
-                    </div>
-                    <div className="flex flex-col flex-1 gap-1 py-4 justify-center items-center">
-                        <span className="font-bold text-3xl text-orange-600">{Object.values(components).reduce((sum, comp) => sum + comp.subComponents.length, 0)}</span>
-                        <span className="text-xs text-gray-500">Nested Components</span>
-                    </div>
-                </div>
-            </div>
 
-            {/* COMPONENT LIST */}
-            <div className="flex flex-col border border-black/10 rounded-md gap-4 p-4 flex-1 min-h-0">
-                <div className="flex flex-col shrink-0">
-                    <div className="flex gap-1">
-                        <span>Component Library</span>
-                        <span>({Object.keys(components).length})</span>
+                        <button className="flex h-9 items-center gap-1.5 rounded-sm bg-corvid-primary px-3 text-sm font-semibold text-white cursor-pointer active:brightness-95">
+                            <Plus strokeWidth={3} size={16} />
+                            New Component
+                        </button>
                     </div>
-                    <span className="text-sm text-gray-500">
-                        Click on a component to expand and view details
-                    </span>
+
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-black/10 pt-4">
+                        <div className="flex flex-col items-center justify-center gap-1 rounded-sm border border-black/5 bg-black/[0.015] py-3">
+                            <span className="text-2xl font-bold text-blue-600">
+                                {totalComponents}
+                            </span>
+                            <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-500">
+                                Total Components
+                            </span>
+                        </div>
+
+                        <div className="flex flex-col items-center justify-center gap-1 rounded-sm border border-black/5 bg-black/[0.015] py-3">
+                            <span className="text-2xl font-bold text-green-600">
+                                {totalDistributionNodes}
+                            </span>
+                            <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-500">
+                                Distribution Nodes
+                            </span>
+                        </div>
+
+                        <div className="flex flex-col items-center justify-center gap-1 rounded-sm border border-black/5 bg-black/[0.015] py-3">
+                            <span className="text-2xl font-bold text-orange-600">
+                                {totalNestedComponents}
+                            </span>
+                            <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-500">
+                                Nested Components
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Scrollable area */}
-                <div className="flex flex-col gap-4 overflow-y-auto flex-1 min-h-0">
-                    {Object.values(components).map(comp => createComponentCard(comp))}
+                {/* Library List */}
+                <div className={`${cardClass} flex min-h-0 flex-1 flex-col px-4 py-4`}>
+                    <div className="flex flex-col shrink-0">
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-base font-semibold text-gray-900">
+                                Component Library
+                            </span>
+                            <span className="text-sm text-gray-500">
+                                ({totalComponents})
+                            </span>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                            Click a component to expand and view details
+                        </span>
+                    </div>
+
+                    <div className="mt-4 flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto">
+                        {componentList.map((comp) => createComponentCard(comp))}
+                    </div>
                 </div>
             </div>
         </Page>
-    )
+    );
 }
