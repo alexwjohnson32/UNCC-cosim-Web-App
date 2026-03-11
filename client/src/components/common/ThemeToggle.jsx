@@ -11,8 +11,8 @@ export default function ThemeToggle() {
             onClick={() => setLightMode(!lightMode)}
         >
             {lightMode ?
-                <img src={lightModeIcon}></img> :
-                <img src={darkModeIcon}></img>
+                <img src={lightModeIcon} width={20}></img> :
+                <img src={darkModeIcon} width={20}></img>
             }
         </button>
     );

@@ -25,7 +25,7 @@ export default function Navbar({ pageList, currentPage, onPageChange }) {
                 <img className='h-12' src={logo} />
                 <span className="-ml-4">GridSim</span>
             </div>
-            <div className="flex flex-col gap-4 h-full w-full">
+            <div className="flex flex-col h-full w-full">
                 {pageList.map(page => createPageButton(page))}
             </div>
             <div className="flex flex-col items-center justify-end gap-4 w-full">
