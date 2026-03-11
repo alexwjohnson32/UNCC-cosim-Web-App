@@ -339,7 +339,7 @@ export default function SimulationPage2() {
     return (
         <Page metadata={"Simulation"}>
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
-                <div className="rounded-md border border-black/10 bg-white px-4 py-3">
+                <div className="rounded-md bg-white px-4 py-3">
                     <div className="flex items-center justify-between gap-4">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-1.5">
