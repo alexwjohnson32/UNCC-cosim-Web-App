@@ -1,111 +1,153 @@
 import { Activity, ChartColumn, Clock, Play, Zap } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Page from "../Page";
 
 export default function DashboardPage() {
-    const [availableSims, setAvailableSims] = useState(["test1", "test2"]);
+    const availableSims = useMemo(() => ["test1", "test2"], []);
     const [activeSim, setActiveSim] = useState("");
 
-    const getPlacholderPane = () => {
+    const cardClass = "rounded-md border border-black/10 bg-white";
+    const metricCardClass = "rounded-md border border-black/10 bg-white px-3 py-3";
+    const panelClass = "rounded-md border border-black/10 bg-white px-3 py-3";
+    const sectionLabelClass =
+        "text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500";
+    const chartTitleClass = "text-sm font-semibold text-gray-900";
+    const chartSubtitleClass = "text-xs text-gray-500";
+
+    function getPlaceholderPane() {
         return (
-            <div className="flex flex-col border border-black/10 rounded-md p-4 h-full items-center justify-center">
-                <Zap height={40} width={36} className="stroke-gray-500" />
-                <span className="text-gray-500">Select a Simulation</span>
-                <span className="text-gray-400">
-                    Choose a simulation run from the dropdown above to view detailed analytics and performance metrics.
+            <div className="flex min-h-130 flex-col items-center justify-center rounded-md border border-black/10 bg-white p-8 text-center">
+                <Zap height={34} width={34} className="stroke-gray-500" />
+                <span className="mt-2 text-sm font-medium text-gray-600">
+                    Select a Simulation
+                </span>
+                <span className="max-w-xl text-sm text-gray-400">
+                    Choose a simulation run from the dropdown above to view detailed
+                    analytics and performance metrics.
                 </span>
             </div>
-        )
+        );
     }
 
-    const getMetricsPane = () => {
+    function createMetricCard(title, value, subtitle, Icon, valueClassName = "text-gray-900") {
         return (
-            <div className="grid grid-rows-8 grid-cols-4 gap-4 h-full">
-                {/* Top level cards */}
-                <div className="flex flex-col row-span-2 border p-8 rounded-lg border-black/10">
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-700">Simulation Status</span>
-                        <Play height={18} className="stroke-gray-700" />
-                    </div>
-                    <div className="flex flex-col h-full w-full justify-end">
-                        <span className="text-green-600 font-bold text-xl">Completed</span>
-                        <span className="text-xs text-gray-500">2025-06-2025</span>
-                    </div>
-                </div>
-                <div className="flex flex-col row-span-2 border p-8 rounded-lg border-black/10">
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-700">Peak Load</span>
-                        <Activity height={18} className="stroke-gray-700" />
-                    </div>
-                    <div className="flex flex-col h-full w-full justify-end">
-                        <span className="font-bold text-xl">347 MW</span>
-                        <span className="text-xs text-gray-500">Maximum observed in timeframe</span>
-                    </div>
-                </div>
-                <div className="flex flex-col row-span-2 border p-8 rounded-lg border-black/10">
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-700">Data Points</span>
-                        <ChartColumn height={18} className="stroke-gray-700" />
-                    </div>
-                    <div className="flex flex-col h-full w-full justify-end">
-                        <span className="font-bold text-xl">100</span>
-                        <span className="text-xs text-gray-500">Time series samples</span>
-                    </div>
-                </div>
-                <div className="flex flex-col row-span-2 border p-8 rounded-lg border-black/10">
-                    <div className="flex justify-between">
-                        <span className="text-sm text-gray-700">Analysis Window</span>
-                        <Clock height={18} className="stroke-gray-700" />
-                    </div>
-                    <div className="flex flex-col h-full w-full justify-end">
-                        <span className="font-bold text-xl">3h 0m 0s</span>
-                        <span className="text-xs text-gray-500">0:00 - 3:00:00</span>
-                    </div>
+            <div className={metricCardClass}>
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-600">{title}</span>
+                    <Icon size={16} className="stroke-gray-600" />
                 </div>
 
-                {/* Graphs and Plots */}
-                <div className="flex flex-col row-span-3 col-span-2 border p-8 rounded-lg border-black/10 h-full">
-                    <span>Voltage Profile</span>
-                    <span className="text-gray-500 text-sm mb-2">Voltage monitoring across the distribution network</span>
-                    <div className="h-full w-full bg-gray-200"></div>
-                </div>
-                <div className="flex flex-col row-span-3 col-span-2 border p-8 rounded-lg border-black/10 h-full">
-                    <span>Frequency Stability</span>
-                    <span className="text-gray-500 text-sm mb-2">Grid frequency measurements in Hz</span>
-                    <div className="h-full w-full bg-gray-200"></div>
-                </div>
-                <div className="flex flex-col row-span-3 col-span-2 border p-8 rounded-lg border-black/10 h-full">
-                    <span>Load Distribution</span>
-                    <span className="text-gray-500 text-sm mb-2">Power consumption by sector</span>
-                    <div className="h-full w-full bg-gray-200"></div>
-                </div>
-                <div className="flex flex-col row-span-3 col-span-2 border p-8 rounded-lg border-black/10 h-full">
-                    <span>Power Flow</span>
-                    <span className="text-gray-500 text-sm mb-2">Load distribution over selected time period</span>
-                    <div className="h-full w-full bg-gray-200"></div>
+                <div className="mt-4 flex flex-col">
+                    <span className={`text-lg font-bold ${valueClassName}`}>{value}</span>
+                    <span className="text-xs text-gray-500">{subtitle}</span>
                 </div>
             </div>
-        )
+        );
+    }
+
+    function createChartPanel(title, subtitle) {
+        return (
+            <div className={panelClass}>
+                <div className="flex flex-col gap-0.5">
+                    <span className={chartTitleClass}>{title}</span>
+                    <span className={chartSubtitleClass}>{subtitle}</span>
+                </div>
+
+                <div className="mt-3 h-40 rounded-sm border border-black/5 bg-black/3" />
+            </div>
+        );
+    }
+
+    function getMetricsPane() {
+        return (
+            <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-4 gap-3">
+                    {createMetricCard(
+                        "Simulation Status",
+                        "Completed",
+                        "2025-06-2025",
+                        Play,
+                        "text-green-600"
+                    )}
+                    {createMetricCard(
+                        "Peak Load",
+                        "347 MW",
+                        "Maximum observed in timeframe",
+                        Activity
+                    )}
+                    {createMetricCard(
+                        "Data Points",
+                        "100",
+                        "Time series samples",
+                        ChartColumn
+                    )}
+                    {createMetricCard(
+                        "Analysis Window",
+                        "3h 0m 0s",
+                        "0:00 - 3:00:00",
+                        Clock
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    {createChartPanel(
+                        "Voltage Profile",
+                        "Voltage monitoring across the distribution network"
+                    )}
+                    {createChartPanel(
+                        "Frequency Stability",
+                        "Grid frequency measurements in Hz"
+                    )}
+                    {createChartPanel(
+                        "Load Distribution",
+                        "Power consumption by sector"
+                    )}
+                    {createChartPanel(
+                        "Power Flow",
+                        "Load distribution over selected time period"
+                    )}
+                </div>
+            </div>
+        );
     }
 
     return (
         <Page metadata={"Dashboard"}>
-            <div className="flex gap-2 border border-black/10 rounded-md p-4 w-full">
-                <div className="flex flex-col w-full">
-                    <span className="text-sm">Simulation Run</span>
-                    <select
-                        required
-                        value={activeSim}
-                        className="border border-gray-500 rounded-sm w-full px-2 py-1 focus:outline-none invalid:text-gray-400 invalid:border-gray-300 invalid:italic cursor-pointer"
-                        onChange={(e) => setActiveSim(e.target.value)}
-                    >
-                        <option value={""} disabled hidden>Select simulation run...</option>
-                        {availableSims.map(sim => <option key={sim} value={sim} className="text-black">{sim}</option>)}
-                    </select>
-                </div>
-            </div>
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
+                <div className={`px-4 py-3`}>
+                    <div className="flex items-end justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-base font-semibold text-gray-900">
+                                Analytics Dashboard
+                            </span>
+                            <span className="text-sm text-gray-500">
+                                Review simulation run metrics, trends, and performance data
+                            </span>
+                        </div>
 
-            {activeSim ? getMetricsPane() : getPlacholderPane()}
+                        <div className="flex min-w-[320px] flex-col gap-1">
+                            <span className={sectionLabelClass}>Simulation Run</span>
+                            <select
+                                required
+                                value={activeSim}
+                                className="h-9 w-full rounded-sm border border-black/20 bg-white px-3 text-sm text-black focus:outline-none invalid:border-gray-300 invalid:text-gray-400 invalid:italic cursor-pointer"
+                                onChange={(e) => setActiveSim(e.target.value)}
+                            >
+                                <option value="" disabled hidden>
+                                    Select simulation run...
+                                </option>
+                                {availableSims.map((sim) => (
+                                    <option key={sim} value={sim} className="text-black">
+                                        {sim}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {activeSim ? getMetricsPane() : getPlaceholderPane()}
+            </div>
         </Page>
-    )
+    );
 }
