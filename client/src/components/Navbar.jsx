@@ -9,9 +9,10 @@ export default function Navbar({ pageList, currentPage, onPageChange }) {
                 key={`navbar-btn-${page}`}
                 onClick={() => onPageChange(page)}
                 className={[
-                    "flex w-full p-2 items-center gap-2.5 rounded text-xl font-bold cursor-pointer",
-                    "hover:bg-white/10",// hover styles
-                    currentPage === page ? "text-white bg-white/10" : "text-white/75 hover:text-white" // active styles (when current)
+                    "flex w-full h-9 px-2 items-center gap-2.5 rounded-lg font-semibold cursor-pointer",
+                    currentPage === page
+                        ? "text-white bg-white/10"
+                        : "text-white/75 hover:text-white hover:bg-white/5"
                 ].join(" ")}
             >
                 {page}

@@ -7,7 +7,7 @@ export default function ThemeToggle() {
 
     return (
         <button
-            className='flex cursor-pointer bg-white/5 hover:bg-white/15 h-10 w-10 rounded-full justify-center'
+            className='flex cursor-pointer bg-white/5 hover:bg-white/10 h-10 w-10 rounded-full justify-center'
             onClick={() => setLightMode(!lightMode)}
         >
             {lightMode ?
